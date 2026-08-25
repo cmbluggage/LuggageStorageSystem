@@ -165,7 +165,7 @@ export function PriceSummaryPanel({
         </div>
         <div className="flex items-center gap-2">
           <ShieldCheck className="w-4 h-4 text-emerald-600 flex-shrink-0" />
-          <span>Insurance Add-on available on next step</span>
+          <span>Optional Insurance Add-on available</span>
         </div>
       </div>
     </div>
