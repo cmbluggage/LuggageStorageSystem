@@ -39,7 +39,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   insurance_default_on: false,
   insurance_label: 'Damage & Loss Protection',
   week_threshold_days: 7,
-  airport_service_fee_usd: 5.0,
+  airport_service_fee_usd: 10.0,
   min_booking_days: 1,
   max_booking_days: 90,
   max_items_per_booking: 20,

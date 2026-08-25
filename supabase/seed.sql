@@ -126,7 +126,7 @@ insert into public.addon_services
 values
   ('ADDON_001', 'Airport Delivery Service',
    'Direct luggage collection or delivery at Colombo Airport terminal',
-   5.00)
+   10.00)
 on conflict (code) do update set
   fee_usd = excluded.fee_usd;
 

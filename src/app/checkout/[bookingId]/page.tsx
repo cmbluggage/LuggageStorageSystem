@@ -272,18 +272,23 @@ export default function CheckoutPage() {
       }
     });
 
-    const grandTotal = itemFee + dropoffSurcharge + pickupSurcharge + insuranceFee;
+    const airportServiceFee =
+      sessionData?.breakdown?.airportServiceFee ??
+      booking?.airportServiceUsd ??
+      (isAirportBooking ? 10.0 : 0);
+
+    const grandTotal = itemFee + dropoffSurcharge + pickupSurcharge + airportServiceFee + insuranceFee;
 
     return {
       duration,
       itemFee,
       dropoffSurcharge,
       pickupSurcharge,
-      airportServiceFee: 0,
+      airportServiceFee,
       insuranceFee,
       grandTotal,
     };
-  }, [sessionData, booking, duration, dropoffLoc, pickupLoc, itemsList]);
+  }, [sessionData, booking, duration, dropoffLoc, pickupLoc, itemsList, isAirportBooking]);
 
   const grandTotal = sessionData?.grandTotalUsd || booking?.grandTotalUsd || breakdown.grandTotal || 0;
 
