@@ -2,13 +2,13 @@ import type { Metadata } from 'next';
 import { LandingPage } from '@/components/landing/LandingPage';
 
 export const metadata: Metadata = {
-  title: 'Stowaway — Secure Luggage Storage Near CMB Airport',
+  title: 'Luggage Storage Colombo — Luggage Storage Service Colombo Airport',
   description:
-    'Store your luggage securely near Colombo Airport. 24/7 drop-off and collection, airport pickup and delivery available. Book online in minutes.',
+    'Secure, convenient luggage storage near Colombo airport. Drop off your bags in minutes and enjoy exploring the island hands-free and hassle-free.',
   keywords: 'luggage storage, Colombo airport, CMB, bag storage, travel, Hotel Thilon',
   openGraph: {
-    title: 'Stowaway — Secure Luggage Storage Near CMB Airport',
-    description: 'Store your luggage securely near Colombo Airport. 24/7 drop-off and collection.',
+    title: 'Luggage Storage Colombo — Luggage Storage Service Colombo Airport',
+    description: 'Secure, convenient luggage storage near Colombo airport. Drop off your bags in minutes.',
     type: 'website',
   },
 };

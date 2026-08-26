@@ -107,7 +107,7 @@ export default function AdminPanel() {
   const groups = [...new Set(TABS.map((t) => t.group))];
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
+    <div className="admin-shell min-h-screen bg-slate-50 text-slate-900 font-sans">
       <header className="bg-[#1C130E] text-white sticky top-0 z-40 border-b border-stone-800 shadow-lg">
         <div className="max-w-7xl mx-auto flex items-center justify-between px-4 sm:px-6 py-3 gap-3">
           <div className="flex items-center gap-3 min-w-0">
@@ -124,7 +124,7 @@ export default function AdminPanel() {
               <ShieldCheck className="w-4 h-4 text-white" />
             </div>
             <div className="min-w-0">
-              <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Stowaway</span>
+              <span className="text-[10px] font-bold text-orange-400 uppercase tracking-widest">Luggage Storage Colombo</span>
               <p className="text-sm font-extrabold text-white leading-none truncate">Control Panel</p>
             </div>
           </div>

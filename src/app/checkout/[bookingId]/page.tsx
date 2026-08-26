@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { NavBar } from '@/components/ui/NavBar';
+import { SiteHeader } from '@/components/ui/SiteHeader';
 import { Button } from '@/components/ui/Button';
 import { formatUSD, formatLKR } from '@/lib/currency';
 import { calculateDuration, type PricingBreakdown } from '@/lib/pricing';
@@ -379,7 +379,7 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      <NavBar />
+      <SiteHeader />
 
       <main className="max-w-6xl mx-auto py-8 sm:py-12 px-4 sm:px-6" id="checkout-main">
         {/* Header */}

@@ -4,7 +4,7 @@ import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import QRCode from 'qrcode';
-import { NavBar } from '@/components/ui/NavBar';
+import { SiteHeader } from '@/components/ui/SiteHeader';
 import { Button } from '@/components/ui/Button';
 import { formatUSD, formatLKR } from '@/lib/currency';
 import { notify } from '@/lib/toast';
@@ -64,7 +64,7 @@ function ConfirmationContent() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans print:bg-white">
       <div className="print:hidden">
-        <NavBar />
+        <SiteHeader />
       </div>
 
       <main className="max-w-4xl mx-auto py-8 sm:py-12 px-4 sm:px-6" id="confirmation-main">
@@ -92,7 +92,7 @@ function ConfirmationContent() {
             {/* Header banner */}
             <div className="bg-[#1C130E] text-white p-6 flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold text-orange-400 uppercase tracking-widest">Stowaway Luggage Pass</p>
+                <p className="text-xs font-bold text-orange-400 uppercase tracking-widest">Luggage Storage Colombo Pass</p>
                 <h3 className="text-lg font-bold text-white mt-0.5">
                   {booking?.fullName || 'Valued Guest'}
                 </h3>

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { NavBar } from '@/components/ui/NavBar';
+import { SiteHeader } from '@/components/ui/SiteHeader';
 import { Button } from '@/components/ui/Button';
 import { formatUSD } from '@/lib/currency';
 import { DEFAULT_SETTINGS } from '@/lib/settings';
@@ -143,12 +143,12 @@ export default function MyBookingsPage() {
   }, [lookup]);
 
   const waHref = `https://wa.me/${support.whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(
-    'Hello Stowaway support, I have a question about my booking.',
+    'Hello Luggage Storage Colombo support, I have a question about my booking.',
   )}`;
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col">
-      <NavBar />
+      <SiteHeader />
 
       <main className="flex-1 max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 w-full" id="my-bookings-main">
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-5 mb-8 pb-6 border-b border-slate-200">

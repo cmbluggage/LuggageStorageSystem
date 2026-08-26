@@ -3,7 +3,7 @@
 import React from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { NavBar } from '@/components/ui/NavBar';
+import { SiteHeader } from '@/components/ui/SiteHeader';
 import { Card } from '@/components/ui/Card';
 import { PillTag } from '@/components/ui/PillTag';
 import { Button } from '@/components/ui/Button';
@@ -57,7 +57,7 @@ export default function BookingDetailPage() {
 
   return (
     <div className="min-h-screen bg-[var(--color-canvas-soft)] text-[var(--color-ink)]">
-      <NavBar />
+      <SiteHeader />
 
       <main className="max-w-[var(--max-w-content)] mx-auto py-[var(--space-3xl)] px-[var(--space-2xl)]" id="booking-detail-main">
         {/* Header */}

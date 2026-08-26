@@ -1,228 +1,477 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { NavBar } from '@/components/ui/NavBar';
-import { Button } from '@/components/ui/Button';
-import { MapPin, ShieldCheck, Clock, CheckCircle2, Star, ArrowRight } from 'lucide-react';
+import { Plane, ShieldCheck, Wallet, Lock, CalendarClock, Clock, MapPinned, PlaneTakeoff, CreditCard } from 'lucide-react';
+import type { ItemTier } from '@/components/booking/ItemSelector';
+import { DEFAULT_SETTINGS, type PublicSettings } from '@/lib/settings';
+import { SiteHeader } from '@/components/ui/SiteHeader';
+
+const TIER_IMAGES = ['/landing/item-small.png', '/landing/item-medium.png', '/landing/item-large.png', '/landing/item-odd.png'];
+
+const FAQ_ITEMS = [
+  {
+    q: 'Where can I drop off and collect my luggage?',
+    a: 'You can drop off and collect at either of our two locations: our counter just outside Bandaranaike International Airport, or Hotel Thilon, a 5-minute drive away. Pick whichever is closer to your plans when you book.',
+  },
+  {
+    q: 'Do you offer airport pickup and delivery?',
+    a: 'Yes. We can meet you at Arrivals or bring your bags to Departures in time for your flight. Airport pickup and delivery is available for a small additional fee and must be arranged in advance.',
+  },
+  {
+    q: 'What if my travel plans change?',
+    a: 'No problem — cancellation is free and there is no prepayment required. Message us on WhatsApp any time before your booked drop-off to change your dates or location.',
+  },
+  {
+    q: 'How does payment and insurance work?',
+    a: 'Pay conveniently using foreign or local currency, or by card. Insurance is optional and calculated per item — you can choose to add it during checkout for extra peace of mind.',
+  },
+  {
+    q: 'What items can I store?',
+    a: 'Anything from a daypack to a surfboard: backpacks, suitcases, duffel bags, bicycles, golf bags and other odd-sized equipment are all welcome.',
+  },
+  {
+    q: 'Do you offer a weekly rate?',
+    a: 'Yes. Stays of 7 days or more automatically switch to our cheaper weekly rate — no need to ask, it is applied for you at checkout.',
+  },
+];
 
 export function LandingPage() {
   const router = useRouter();
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [tiers, setTiers] = useState<ItemTier[] | null>(null);
+  const [whatsapp, setWhatsapp] = useState(DEFAULT_SETTINGS.support_whatsapp);
+
+  useEffect(() => {
+    fetch('/api/item-tiers')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => setTiers(Array.isArray(data?.item_tiers) ? data.item_tiers : []))
+      .catch(() => setTiers([]));
+
+    fetch('/api/settings')
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data) => {
+        if (data?.settings?.support_whatsapp) setWhatsapp(data.settings.support_whatsapp);
+      })
+      .catch(() => {});
+  }, []);
+
+  const waHref = `https://wa.me/${whatsapp.replace(/\D/g, '')}?text=${encodeURIComponent(
+    'Hello Luggage Storage Colombo, I have a question about luggage storage.',
+  )}`;
+
+  const goBook = () => router.push('/book');
 
   return (
-    <div className="min-h-screen bg-white text-slate-900 font-sans">
-      <NavBar showBookNow onBookNow={() => router.push('/book')} />
+    <div className="min-h-screen bg-white">
+      {/* ── Header ─────────────────────────────────────────── */}
+      <SiteHeader variant="landing" />
 
-      {/* ── Hero Section (Bounce-style Clean CTAs) ──────────────── */}
-      <section className="relative bg-white pb-16 pt-12 md:pt-20">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-10">
-            <span className="px-3.5 py-1.5 rounded-full text-xs font-extrabold bg-orange-100 text-orange-900 mb-4 inline-block tracking-wide">
-              #1 Luggage Storage Near CMB Airport
+      {/* ── Hero ───────────────────────────────────────────── */}
+      <section className="relative flex flex-col items-center pt-16 md:pt-32 pb-16 px-6 overflow-hidden">
+        {/* Full-bleed decorative images — positioned against the true viewport edges, not the centered content column */}
+        <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+          <div className="hidden lg:block absolute left-0 top-[4.71%] h-[95.33%] w-[30%] xl:w-[34%] 2xl:w-[37.25%]">
+            <Image
+              src="/landing/hero-airport.png"
+              alt=""
+              fill
+              sizes="(min-width: 1536px) 38vw, (min-width: 1280px) 34vw, 30vw"
+              className="object-contain object-left"
+              priority
+            />
+          </div>
+          <div className="hidden lg:block absolute right-0 top-0 h-full w-[31%] xl:w-[35%] 2xl:w-[39.08%]">
+            <Image
+              src="/landing/hero-luggage.png"
+              alt=""
+              fill
+              sizes="(min-width: 1536px) 40vw, (min-width: 1280px) 35vw, 31vw"
+              className="object-contain object-right"
+              priority
+            />
+          </div>
+        </div>
+
+        <div className="relative flex flex-col gap-[18px] items-center max-w-[980px] w-full">
+          <div className="flex flex-wrap gap-2 items-center justify-center">
+            <span className="bg-black flex gap-2 items-center px-3 py-2 rounded-[40px]">
+              <Plane className="w-[15px] h-[15px] text-white" />
+              <span className="font-semibold text-[13px] md:text-[14px] text-white whitespace-nowrap">Airport Dropoff &amp; Pickup</span>
             </span>
-            <h1 className="text-4xl md:text-6xl font-black tracking-tight text-[#1C130E] mb-6 leading-tight">
-              Store light. Travel free.
-            </h1>
-            <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed font-medium">
-              Secure, insured luggage storage across Sri Lanka. Drop off your bags in minutes and explore the island without heavy lifting.
-            </p>
+            <span className="bg-black flex gap-2 items-center px-3 py-2 rounded-[40px]">
+              <Wallet className="w-[15px] h-[15px] text-white" />
+              <span className="font-semibold text-[13px] md:text-[14px] text-white whitespace-nowrap">Lowest Pricing</span>
+            </span>
+            <span className="bg-black flex gap-2 items-center px-3 py-2 rounded-[40px]">
+              <ShieldCheck className="w-[15px] h-[15px] text-white" />
+              <span className="font-semibold text-[13px] md:text-[14px] text-white whitespace-nowrap">Fully Insured</span>
+            </span>
           </div>
 
-          {/* Action CTAs: Book Now & Learn More */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-md mx-auto mb-10">
-            <Button
-              variant="primary"
-              size="lg"
-              onClick={() => router.push('/book')}
-              className="w-full sm:w-auto px-8 py-4 text-base font-black shadow-md flex items-center justify-center gap-2"
+          <h1 className="pt-2 font-extrabold text-[#0a0a0a] text-[38px] leading-[1.05] md:text-[66px] md:leading-[69.3px] text-center tracking-[-1.2px] md:tracking-[-2.31px]">
+            Luggage Storage Service<br />
+            <span className="text-[#e8620a]">Colombo</span> Airport
+          </h1>
+
+          <p className="text-[#4a4a4a] text-[16px] md:text-[19px] text-center leading-[1.5] md:leading-[29.45px] max-w-[782px]">
+            Secure, convenient luggage storage near Colombo airport. Drop off your bags in minutes and enjoy exploring the island hands-free and hassle-free.
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-4 items-center justify-center pt-4 w-full max-w-md sm:max-w-none">
+            <button
+              onClick={goBook}
+              className="w-full sm:w-auto bg-[#e8620a] hover:bg-[#d1560a] transition-colors px-[42px] py-[19px] rounded-[100px] font-bold text-[18px] text-white whitespace-nowrap"
             >
-              Book Storage Now <ArrowRight className="w-5 h-5" />
-            </Button>
-            <a href="#how-it-works" className="w-full sm:w-auto">
-              <Button
-                variant="secondary"
-                size="lg"
-                className="w-full sm:w-auto px-8 py-4 text-base font-bold text-[#1C130E]"
-              >
-                Learn More
-              </Button>
+              Book Storage Now
+            </button>
+            <a
+              href="#pricing"
+              className="w-full sm:w-auto text-center border border-[#e2e2e2] hover:bg-[#faf8f6] transition-colors px-[35px] py-5 rounded-[100px] font-bold text-[18px] text-[#0a0a0a] whitespace-nowrap"
+            >
+              See pricing
             </a>
           </div>
 
-          {/* Trust micro-stats */}
-          <div className="flex justify-center flex-wrap gap-6 md:gap-10 text-slate-700 font-bold">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-orange-600" />
-              <span className="text-sm">Fully Insured Storage</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-orange-600" />
-              <span className="text-sm">No Item Size Limits</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-5 h-5 text-orange-600" />
-              <span className="text-sm">Free Cancellation</span>
-            </div>
-          </div>
+          <p className="text-[#8a8a8a] text-[14px] text-center">Open 24/7 · Cheapest Price in Sri Lanka · No booking fee</p>
         </div>
       </section>
 
-      {/* ── Image Banner ──────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-6 mb-16">
-        <div className="w-full h-[320px] md:h-[450px] relative rounded-2xl overflow-hidden shadow-lg border border-slate-200">
-           <Image
-            src="/hero.png"
-            alt="Secure luggage storage facility"
-            fill
-            priority
-            className="object-cover"
-            sizes="100vw"
-          />
-        </div>
-      </section>
-
-      {/* ── How It Works ──────────────────────────────────────── */}
-      <section id="how-it-works" className="py-20 bg-slate-50 border-y border-slate-200">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-5xl font-black tracking-tight text-[#1C130E]">How it works</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-white p-8 rounded-2xl text-center border border-slate-200 shadow-2xs">
-              <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6 text-orange-600">
-                <MapPin className="w-7 h-7" />
-              </div>
-              <h3 className="text-xl font-bold mb-3 text-[#1C130E]">1. Book online</h3>
-              <p className="text-slate-600 text-sm leading-relaxed font-medium">Select your drop-off location, date, and luggage items in seconds.</p>
-            </div>
-            <div className="bg-white p-8 rounded-2xl text-center border border-slate-200 shadow-2xs">
-              <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6 text-orange-600">
-                <Clock className="w-7 h-7" />
-              </div>
-              <h3 className="text-xl font-bold mb-3 text-[#1C130E]">2. Drop off bags</h3>
-              <p className="text-slate-600 text-sm leading-relaxed font-medium">Show your QR pass at CMB Airport or hotel partner for instant check-in.</p>
-            </div>
-            <div className="bg-white p-8 rounded-2xl text-center border border-slate-200 shadow-2xs">
-              <div className="w-14 h-14 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-6 text-orange-600">
-                <ShieldCheck className="w-7 h-7" />
-              </div>
-              <h3 className="text-xl font-bold mb-3 text-[#1C130E]">3. Enjoy your trip</h3>
-              <p className="text-slate-600 text-sm leading-relaxed font-medium">Explore Sri Lanka hands-free. Pick up your luggage when you are ready.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ── Pricing & Benefits (Dark Brown Band) ───────────── */}
-      <section id="pricing" className="bg-[#1C130E] text-white py-20">
-        <div className="max-w-6xl mx-auto px-6 flex flex-col md:flex-row gap-12 items-center">
-          <div className="flex-1">
-            <h2 className="text-3xl md:text-5xl font-black tracking-tight mb-6 leading-tight">Transparent pricing. No hidden fees.</h2>
-            <p className="text-lg text-slate-300 mb-8 max-w-lg leading-relaxed font-medium">
-              Whether it&apos;s a small backpack or a large surfboard, our pricing is straightforward. Only pay for the time and space you use.
+      {/* ── Services ───────────────────────────────────────── */}
+      <section id="services" className="bg-[#faf8f6] py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
+        <div className="max-w-[1100px] mx-auto flex flex-col gap-[52px]">
+          <div className="flex flex-col gap-[14px] max-w-[640px]">
+            <p className="font-mono-ibm text-[#e8620a] text-[13px] tracking-[1.04px]">OUR SERVICES</p>
+            <h2 className="font-extrabold text-[#0a0a0a] text-[32px] md:text-[44px] leading-[1.1] md:leading-[48.4px] tracking-[-1.32px]">
+              Everything you need between two flights
+            </h2>
+            <p className="text-[#5a5a5a] text-[16px] md:text-[17px] leading-[1.5] md:leading-[26.35px]">
+              One place, 6 services. Leave your bags with us and get on with the trip.
             </p>
-            <ul className="flex flex-col gap-4 mb-8">
-              <li className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-orange-500" />
-                <span className="text-base font-bold">Starting at just $1 / day</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-orange-500" />
-                <span className="text-base font-bold">Discounts for weekly & monthly storage</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5 text-orange-500" />
-                <span className="text-base font-bold">$10,000 protection guarantee per booking</span>
-              </li>
-            </ul>
-            <div>
-              <Button variant="primary" size="lg" onClick={() => router.push('/book')} className="font-bold py-4 px-8 text-base">
-                Book Storage Now
-              </Button>
-            </div>
           </div>
-          <div className="flex-1 w-full bg-[#2E1C14] p-8 rounded-2xl border border-stone-800 shadow-xl">
-             <div className="flex justify-between items-center border-b border-stone-700/60 pb-4 mb-4">
-                <span className="text-base font-bold text-white">Small Bag / Laptop</span>
-                <span className="text-lg font-black text-orange-500">$1.00 / day</span>
-             </div>
-             <div className="flex justify-between items-center border-b border-stone-700/60 pb-4 mb-4">
-                <span className="text-base font-bold text-white">Carry-on Luggage</span>
-                <span className="text-lg font-black text-orange-500">$2.00 / day</span>
-             </div>
-             <div className="flex justify-between items-center pb-2">
-                <span className="text-base font-bold text-white">Large Suitcase</span>
-                <span className="text-lg font-black text-orange-500">$3.50 / day</span>
-             </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[
+              { title: 'Secure Storage Facility', body: 'Daily storage for layovers, late checkouts and early arrivals. Any size, from a daypack to a surfboard.', Icon: Lock },
+              { title: 'Long-Term Storage', body: 'Weekly rates for expats, digital nomads and anyone island-hopping light for a while. Store your luggage for as long as you need.', Icon: CalendarClock },
+              { title: 'Secure 24/7 Access', body: 'Our facility is directly managed by us, with no third-party involvement. Drop off and collect your luggage anytime to fit your travel plans.', Icon: Clock },
+              { title: 'Convenient Airport Location', body: "Just 2 km from the airport, making it a quick 5–10 minute trip. A convenient stop whether you're arriving, departing or between transiting.", Icon: MapPinned },
+              { title: 'Airport Pickup & Delivery', body: 'We can meet you at Arrivals or bring your bags back to Departures in time for your flight. Pickup and delivery are available for a small fee.', Icon: PlaneTakeoff },
+              { title: 'Flexible Payment Options', body: 'Pay conveniently using foreign, local currencies or secure card payments.', Icon: CreditCard },
+            ].map(({ title, body, Icon }) => (
+              <div
+                key={title}
+                className="group bg-white border border-[#ede8e3] flex flex-col gap-2 p-[31px] rounded-[18px] transition-all duration-300 hover:border-[#e8620a]/40 hover:shadow-[0_12px_32px_-12px_rgba(232,98,10,0.25)] hover:-translate-y-1"
+              >
+                <span className="bg-[#fdf0e6] flex items-center justify-center rounded-xl size-11 transition-all duration-300 group-hover:bg-[#e8620a] group-hover:scale-110">
+                  <Icon className="w-5 h-5 text-[#e8620a] transition-colors duration-300 group-hover:text-white" strokeWidth={2.25} />
+                </span>
+                <h3 className="pt-3 font-bold text-[#0a0a0a] text-[20px] tracking-[-0.4px]">{title}</h3>
+                <p className="text-[#5f5f5f] text-[15px] leading-[24px]">{body}</p>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      {/* ── Testimonials ────────────────────────────────────── */}
-      <section className="py-20 bg-white">
-        <div className="max-w-6xl mx-auto px-6">
-          <h2 className="text-3xl md:text-5xl font-black tracking-tight text-[#1C130E] text-center mb-16">Trusted by thousands</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 shadow-2xs">
-              <div className="flex text-amber-500 mb-4">
-                <Star className="w-5 h-5 fill-current" /><Star className="w-5 h-5 fill-current" /><Star className="w-5 h-5 fill-current" /><Star className="w-5 h-5 fill-current" /><Star className="w-5 h-5 fill-current" />
-              </div>
-              <p className="text-slate-700 text-sm leading-relaxed mb-6 font-medium">
-                &ldquo;Incredibly easy to use. Dropped off my bags right outside the airport and spent my layover exploring Colombo completely hands-free!&rdquo;
-              </p>
-              <p className="text-xs font-bold text-slate-500">— Sarah Jenkins, UK</p>
+      {/* ── How it works ───────────────────────────────────── */}
+      <section className="py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
+        <div className="max-w-[1100px] mx-auto flex flex-col gap-12">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="flex flex-col gap-[14px] max-w-[560px]">
+              <p className="font-mono-ibm text-[#e8620a] text-[13px] tracking-[1.04px]">HOW IT WORKS</p>
+              <h2 className="font-extrabold text-[#0a0a0a] text-[32px] md:text-[44px] leading-[1.1] md:leading-[48.4px] tracking-[-1.32px]">
+                Bags down in under two minutes
+              </h2>
             </div>
-            <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 shadow-2xs">
-              <div className="flex text-amber-500 mb-4">
-                <Star className="w-5 h-5 fill-current" /><Star className="w-5 h-5 fill-current" /><Star className="w-5 h-5 fill-current" /><Star className="w-5 h-5 fill-current" /><Star className="w-5 h-5 fill-current" />
+            <button
+              onClick={goBook}
+              className="self-start bg-[#0a0a0a] hover:bg-black transition-colors px-[30px] py-4 rounded-[100px] font-bold text-[16px] text-white whitespace-nowrap"
+            >
+              Start a booking
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-5">
+            {[
+              { n: '01', border: 'border-[#0a0a0a]', num: 'text-[#9a9a9a]', title: 'Book online', body: 'Pick a date, number of bags and duration. You get a confirmation by email instantly' },
+              { n: '02', border: 'border-[#0a0a0a]', num: 'text-[#9a9a9a]', title: 'Drop at the designated drop-off location', body: 'Drop off your luggage at Hotel Thilon for free, or at Colombo Airport for a nominal additional fee.' },
+              { n: '03', border: 'border-[#e8620a]', num: 'text-[#e8620a]', title: 'Collect when you fly', body: "Let us know your departure flight in advance, and we’ll meet you at the airport with your luggage - or you can collect it directly from Hotel Thilon." },
+            ].map((step) => (
+              <div key={step.n} className={`border-t-[3px] ${step.border} flex flex-col gap-[10px] pt-[27px]`}>
+                <p className={`font-mono-ibm text-[13px] ${step.num}`}>{step.n}</p>
+                <h3 className="font-bold text-[#0a0a0a] text-[22px] tracking-[-0.44px]">{step.title}</h3>
+                <p className="text-[#5f5f5f] text-[16px] leading-[25.6px]">{step.body}</p>
               </div>
-              <p className="text-slate-700 text-sm leading-relaxed mb-6 font-medium">
-                &ldquo;Felt very secure. The staff were professional, and the digital QR pass made pickup super fast!&rdquo;
-              </p>
-              <p className="text-xs font-bold text-slate-500">— Mark D., Australia</p>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Pricing (dynamic, from item_tiers) ─────────────── */}
+      <section id="pricing" className="bg-[#0a0a0a] py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
+        <div className="max-w-[1100px] mx-auto flex flex-col gap-7 items-center">
+          <div className="flex flex-col gap-[14px] max-w-[660px] items-center">
+            <p className="font-mono-ibm text-[#f09a55] text-[13px] tracking-[1.04px] text-center">PRICING</p>
+            <h2 className="font-extrabold text-white text-[32px] md:text-[44px] leading-[1.1] md:leading-[48.4px] tracking-[-1.32px] text-center">
+              The longer you stay, the less you pay per day
+            </h2>
+            <p className="text-[#a8a8a8] text-[16px] md:text-[17px] leading-[1.5] md:leading-[26.35px] text-center">
+              Priced per item, per day, taxes included. The longer the stay, the lower the daily rate.
+            </p>
+          </div>
+
+          <div className="bg-[#151515] border border-[#262626] rounded-[22px] w-full overflow-hidden">
+            <div className="hidden sm:grid grid-cols-[1.4fr_1fr_1fr] px-[34px] pt-[22px] pb-[23px] border-b border-[#262626]">
+              <p className="font-mono-ibm text-[#8e8e8e] text-[14px] tracking-[0.84px]">ITEM</p>
+              <p className="font-bold text-white text-[24px] text-center tracking-[-0.48px]">Daily</p>
+              <p className="font-bold text-[#e8620a] text-[24px] text-center tracking-[-0.48px]">Weekly</p>
             </div>
-            <div className="bg-slate-50 p-8 rounded-2xl border border-slate-200 shadow-2xs">
-              <div className="flex text-amber-500 mb-4">
-                <Star className="w-5 h-5 fill-current" /><Star className="w-5 h-5 fill-current" /><Star className="w-5 h-5 fill-current" /><Star className="w-5 h-5 fill-current" /><Star className="w-5 h-5 fill-current" />
+
+            {tiers === null && (
+              <div aria-busy="true">
+                {[1, 2, 3, 4].map((i) => (
+                  <div
+                    key={i}
+                    className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr_1fr] gap-3 sm:gap-0 px-[34px] py-[26px] border-b border-[#262626] last:border-b-0 animate-pulse"
+                  >
+                    <div className="flex gap-4 items-center">
+                      <span className="rounded-xl size-[76px] shrink-0 bg-[#1f1f1f]" />
+                      <div className="flex flex-col gap-2">
+                        <span className="h-4 w-32 rounded bg-[#1f1f1f]" />
+                        <span className="h-3.5 w-44 rounded bg-[#1f1f1f]" />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-center">
+                      <span className="h-8 w-16 rounded bg-[#1f1f1f]" />
+                    </div>
+                    <div className="flex items-center justify-center py-2.5">
+                      <span className="h-8 w-16 rounded bg-[#1f1f1f]" />
+                    </div>
+                  </div>
+                ))}
               </div>
-              <p className="text-slate-700 text-sm leading-relaxed mb-6 font-medium">
-                &ldquo;Saved me from lugging 3 heavy suitcases around the city. The booking was seamless and price was unbeatable.&rdquo;
-              </p>
-              <p className="text-xs font-bold text-slate-500">— Anjali M., India</p>
+            )}
+            {tiers !== null && tiers.length === 0 && (
+              <div className="px-[34px] py-10 text-center text-[#8e8e8e] text-[14px]">Pricing is temporarily unavailable — please check back shortly.</div>
+            )}
+
+            {tiers?.map((tier, i) => (
+              <div
+                key={tier.id}
+                className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr_1fr] gap-3 sm:gap-0 px-[34px] py-[26px] border-b border-[#262626] last:border-b-0"
+              >
+                <div className="flex gap-4 items-center">
+                  <span className="relative rounded-xl size-[76px] shrink-0 overflow-hidden bg-[#1f1f1f]">
+                    <Image src={TIER_IMAGES[i % TIER_IMAGES.length]} alt="" fill sizes="76px" className="object-cover" />
+                  </span>
+                  <div className="flex flex-col gap-1">
+                    <p className="font-bold text-white text-[19px] tracking-[-0.19px]">{tier.name}</p>
+                    <p className="text-[#8e8e8e] text-[14px] leading-normal">
+                      {tier.weight_spec && <>{tier.weight_spec} · </>}
+                      {tier.supported_items}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col items-center justify-center gap-0.5">
+                  <p className="font-extrabold text-white text-[30px] tracking-[-0.9px]">${tier.rate_daily_usd}</p>
+                  <p className="text-[#8e8e8e] text-[12px]">per day</p>
+                </div>
+                <div className="bg-[rgba(232,98,10,0.12)] rounded-xl flex flex-col items-center justify-center gap-0.5 py-2.5">
+                  <p className="font-extrabold text-[#f79a4e] text-[30px] tracking-[-0.9px]">${tier.rate_weekly_usd}</p>
+                  <p className="text-[#b08056] text-[12px]">per week</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6 w-full pt-2">
+            <p className="text-[#8e8e8e] text-[14px] leading-normal max-w-[620px] text-center md:text-left">
+              Our weekly rate applies for stays of 7 days or more. We&rsquo;ll automatically switch you to the cheaper weekly rate.
+              Insurance is optional and calculated per item. You can choose to insure your luggage during the booking checkout.
+            </p>
+            <button
+              onClick={goBook}
+              className="shrink-0 bg-[#e8620a] hover:bg-[#d1560a] transition-colors px-9 py-[17px] rounded-[100px] font-bold text-[17px] text-white whitespace-nowrap"
+            >
+              Book Storage Now
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Locations ──────────────────────────────────────── */}
+      <section className="py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
+        <div className="max-w-[1100px] mx-auto flex flex-col gap-11">
+          <div className="flex flex-col gap-3 max-w-[620px]">
+            <p className="font-mono-ibm text-[#e8620a] text-[13px] tracking-[1.04px]">FIND US</p>
+            <h2 className="font-extrabold text-[#0a0a0a] text-[28px] md:text-[40px] leading-[1.1] md:leading-[44px] tracking-[-1.2px]">
+              Two locations, both minutes from your gate
+            </h2>
+            <p className="text-[#5a5a5a] text-[16px] md:text-[17px] leading-[1.5] md:leading-[26.35px]">
+              Drop off your luggage at our partner hotel, just a 5-minute drive from the airport, available 24/7.
+              Airport terminal drop-off can also be arranged in advance.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-white border border-[#ede8e3] rounded-[22px] overflow-hidden">
+              <div className="relative h-[220px] md:h-[300px] bg-[#0a0a0a] flex items-center justify-center">
+                <span className="absolute left-4 top-4 bg-black/75 flex gap-2 items-center px-[13px] py-[7px] rounded-full">
+                  <span className="bg-[#e8620a] rounded-full size-[7px]" />
+                  <span className="font-bold text-[12px] text-white tracking-[0.72px]">WALKTHROUGH VIDEO</span>
+                </span>
+                <span className="bg-[#e8620a] flex items-center justify-center rounded-full size-16">
+                  <span className="border-t-[11px] border-b-[11px] border-l-[18px] border-t-transparent border-b-transparent border-l-white ml-1" />
+                </span>
+              </div>
+              <div className="flex flex-col gap-2 px-6 md:px-[30px] py-7">
+                <h3 className="font-bold text-[#0a0a0a] text-[22px] tracking-[-0.44px]">Colombo Airport Drop-Off &amp; Pickup</h3>
+                <p className="text-[#5f5f5f] text-[16px] leading-[25.6px]">
+                  Bandaranaike International Airport — just outside the terminal, around a 1-minute walk. We&rsquo;ll coordinate with you in advance and be ready to receive your luggage when your flight arrives.
+                </p>
+                <div className="flex flex-wrap gap-2.5 pt-2.5">
+                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-[14px] py-2 rounded-full font-semibold text-[#5f5f5f] text-[13px]">Just outside the terminal</span>
+                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-[14px] py-2 rounded-full font-semibold text-[#5f5f5f] text-[13px]">Advance Booking Required</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border border-[#ede8e3] rounded-[22px] overflow-hidden">
+              <div className="relative h-[220px] md:h-[300px] bg-[#f7f5f3]">
+                <span className="absolute right-4 top-4 bg-[#0a0a0a] flex gap-1.5 items-center pl-2 pr-3.5 py-1 rounded-full shadow-lg">
+                  <span className="bg-[#e8620a] rounded-tl-[3.5px] rounded-tr-[3.5px] rounded-br-[3.5px] rotate-45 size-3.5" />
+                  <span className="font-bold text-[12px] text-white">Hotel Thilon</span>
+                </span>
+              </div>
+              <div className="flex flex-col gap-2 px-6 md:px-[30px] py-7">
+                <h3 className="font-bold text-[#0a0a0a] text-[22px] tracking-[-0.44px]">Hotel Thilon</h3>
+                <p className="text-[#5f5f5f] text-[16px] leading-[25.6px]">
+                  Our partner desk in the hotel lobby, a 5-minute drive from the airport. Best if you&rsquo;re on a long layover. Store the bags, take a shower and a meal, then head back.
+                </p>
+                <div className="flex flex-wrap gap-2.5 pt-2.5">
+                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-[14px] py-2 rounded-full font-semibold text-[#5f5f5f] text-[13px]">5 min from CMB Airport</span>
+                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-[14px] py-2 rounded-full font-semibold text-[#5f5f5f] text-[13px]">Walk-Ins Welcome</span>
+                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-[14px] py-2 rounded-full font-semibold text-[#5f5f5f] text-[13px]">Open 24/7</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* ── Footer ────────────────────────────────────────── */}
-      <footer className="bg-[#1C130E] text-white border-t border-stone-800 py-16">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="flex flex-col md:flex-row justify-between items-start gap-8">
-            <div className="max-w-sm">
-              <h4 className="text-2xl font-black mb-3">Stowaway</h4>
-              <p className="text-sm text-slate-400 leading-relaxed font-medium">
-                Secure luggage storage near Colombo International Airport & city centers. Travel lighter, explore further.
-              </p>
-            </div>
-            <div className="flex gap-12">
-              <div className="flex flex-col gap-2">
-                <h5 className="text-sm font-bold text-white mb-1">Navigation</h5>
-                <Link href="#how-it-works" className="text-sm text-slate-400 hover:text-white transition-colors">How It Works</Link>
-                <Link href="#pricing" className="text-sm text-slate-400 hover:text-white transition-colors">Pricing</Link>
-                <Link href="/book" className="text-sm text-slate-400 hover:text-white transition-colors">Book Storage</Link>
+      {/* ── Testimonials ───────────────────────────────────── */}
+      <section className="bg-[#faf8f6] py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
+        <div className="max-w-[1100px] mx-auto flex flex-col gap-11">
+          <h2 className="font-extrabold text-[#0a0a0a] text-[28px] md:text-[40px] leading-[1.1] md:leading-[44px] tracking-[-1.2px] max-w-[620px]">
+            Travellers who left their bags with us
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[
+              { quote: 'Twelve-hour layover, two big suitcases. Dropped them at 6am, went to Negombo beach, picked them up on the way back. Cost less than a taxi ride.', name: 'Marta K.', city: 'Warsaw' },
+              { quote: 'I stored a surfboard and a suitcase for six weeks while I moved around Upcountry. Everything came back exactly as I left it.', name: 'Dinesh R.', city: 'Melbourne' },
+              { quote: 'They delivered our bags to Departures 40 minutes before check-in opened, exactly as promised. Staff messaged us on WhatsApp the whole way.', name: 'The Ellis family', city: 'Manchester' },
+            ].map((t) => (
+              <div key={t.name} className="bg-white border border-[#ede8e3] flex flex-col gap-[22px] p-[31px] rounded-[18px]">
+                <p className="text-[#0a0a0a] text-[18px] leading-[27.9px]">&ldquo;{t.quote}&rdquo;</p>
+                <div className="flex gap-3 items-center">
+                  <span className="bg-[#f3eee9] rounded-full size-[38px] shrink-0" />
+                  <div>
+                    <p className="font-bold text-[#0a0a0a] text-[15px]">{t.name}</p>
+                    <p className="text-[#8a8a8a] text-[13px]">{t.city}</p>
+                  </div>
+                </div>
               </div>
-              <div className="flex flex-col gap-2">
-                <h5 className="text-sm font-bold text-white mb-1">Account</h5>
-                <Link href="/my-bookings" className="text-sm text-slate-400 hover:text-white transition-colors">My Bookings</Link>
-              </div>
-            </div>
+            ))}
           </div>
-          <div className="border-t border-stone-800 mt-12 pt-8 flex justify-between items-center text-sm text-slate-500">
-            <p>© {new Date().getFullYear()} Stowaway. All rights reserved.</p>
+        </div>
+      </section>
+
+      {/* ── FAQ ────────────────────────────────────────────── */}
+      <section id="faq" className="py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
+        <div className="max-w-[900px] mx-auto flex flex-col gap-12">
+          <div className="flex flex-col gap-[14px] items-center text-center">
+            <p className="font-mono-ibm text-[#e8620a] text-[13px] tracking-[1.04px]">FAQ</p>
+            <h2 className="font-extrabold text-[#0a0a0a] text-[28px] md:text-[44px] leading-[1.1] md:leading-[48.4px] tracking-[-1.32px]">
+              Questions before you drop off
+            </h2>
           </div>
+
+          <div className="flex flex-col gap-3">
+            {FAQ_ITEMS.map((item, i) => {
+              const open = openFaq === i;
+              return (
+                <div key={item.q} className="border border-[#eaeaea] rounded-2xl overflow-hidden">
+                  <button
+                    onClick={() => setOpenFaq(open ? null : i)}
+                    className="w-full flex items-center justify-between gap-4 px-6 md:px-[27px] py-[23px] text-left"
+                    aria-expanded={open}
+                  >
+                    <span className="font-bold text-[#0a0a0a] text-[16px] md:text-[18px] tracking-[-0.18px]">{item.q}</span>
+                    <span className="font-bold text-[#e8620a] text-[26px] leading-none shrink-0">{open ? '−' : '+'}</span>
+                  </button>
+                  {open && (
+                    <p className="px-6 md:px-[27px] pb-[23px] text-[#5f5f5f] text-[15px] leading-[24px]">{item.a}</p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA Banner ─────────────────────────────────────── */}
+      <section className="px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28 pb-16 md:pb-24">
+        <div className="max-w-[1100px] mx-auto bg-[#e8620a] rounded-[28px] flex flex-col md:flex-row items-center justify-between gap-8 px-8 md:px-14 py-12 md:py-[72px]">
+          <div className="max-w-[620px] text-center md:text-left">
+            <h2 className="font-extrabold text-white text-[32px] md:text-[44px] leading-tight tracking-[-1.32px]">Land, drop, explore.</h2>
+            <p className="pt-3 text-white/90 text-[16px] md:text-[18px] leading-[1.5] md:leading-[27.9px]">
+              Reserve a shelf in under a minute. Free cancellation, no prepayment, and a real person on WhatsApp if anything changes.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 w-full md:w-auto shrink-0">
+            <button
+              onClick={goBook}
+              className="bg-[#0a0a0a] hover:bg-black transition-colors px-11 py-[19px] rounded-[100px] font-bold text-[18px] text-white whitespace-nowrap"
+            >
+              Book Storage Now
+            </button>
+            <a
+              href={waHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-center border border-white/50 hover:bg-white/10 transition-colors px-11 py-5 rounded-[100px] font-bold text-[18px] text-white whitespace-nowrap"
+            >
+              Talk to us on WhatsApp
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Footer ─────────────────────────────────────────── */}
+      <footer className="bg-[#fafafa] border-t border-[#efefef] px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28 py-10">
+        <div className="max-w-[1100px] mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
+          <Link href="/" className="flex items-center gap-3">
+            <span className="bg-[#e8620a] flex items-center justify-center rounded-[9px] size-8 shrink-0">
+              <span className="flex gap-[2px] items-end">
+                <span className="bg-white h-[9px] w-1 rounded-[1px]" />
+                <span className="bg-white h-[13px] w-1 rounded-[1px]" />
+                <span className="bg-white h-[11px] w-1 rounded-[1px]" />
+              </span>
+            </span>
+            <span className="font-extrabold text-[#0a0a0a] text-[16px] tracking-[-0.32px]">Luggage Storage Colombo</span>
+          </Link>
+
+          <div className="flex gap-7 items-center">
+            <a href="#services" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">Services</a>
+            <a href="#pricing" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">Pricing</a>
+            <a href="#faq" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">FAQ</a>
+            <Link href="/my-bookings" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">Contact</Link>
+          </div>
+
+          <p className="text-[#9a9a9a] text-[14px] whitespace-nowrap">© {new Date().getFullYear()} · Katunayake, Sri Lanka</p>
         </div>
       </footer>
     </div>

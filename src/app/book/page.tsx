@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { NavBar } from '@/components/ui/NavBar';
+import { SiteHeader } from '@/components/ui/SiteHeader';
 import { Button } from '@/components/ui/Button';
 import { ItemSelector, type ItemTier } from '@/components/booking/ItemSelector';
 import { DateTimePicker } from '@/components/booking/DateTimePicker';
@@ -403,7 +403,7 @@ function BookingWizard() {
   // ── Render ───────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans">
-      <NavBar />
+      <SiteHeader />
 
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
         <div className="mb-6">

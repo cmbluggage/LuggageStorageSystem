@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { NavBar } from '@/components/ui/NavBar';
+import { SiteHeader } from '@/components/ui/SiteHeader';
 import { Button } from '@/components/ui/Button';
 import { Lock, ShieldCheck, UserCheck, KeyRound, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -76,7 +76,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 font-sans flex flex-col">
-      <NavBar />
+      <SiteHeader />
       <main className="flex-1 flex items-center justify-center px-4 sm:px-6 py-12" id="login-main">
         <div className="w-full max-w-md">
           <div className="text-center mb-8 flex flex-col items-center">
@@ -85,7 +85,7 @@ export default function LoginPage() {
             </div>
             <h1 className="text-3xl font-extrabold text-[#1C130E] tracking-tight">Portal Sign In</h1>
             <p className="text-sm font-medium text-slate-500 mt-2">
-              Staff &amp; SuperAdmin authentication for Stowaway operations.
+              Staff &amp; SuperAdmin authentication for Luggage Storage Colombo operations.
             </p>
           </div>
 
