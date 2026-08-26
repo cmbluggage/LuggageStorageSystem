@@ -132,6 +132,13 @@ export const bookingsApi = {
       method: 'PATCH',
       body: JSON.stringify({ bookingStatus, cancelReason }),
     }),
+  updateDetails: (id: string, patch: Record<string, unknown>) =>
+    request<{ booking: BookingRecord; balanceNowDue: boolean }>(`/api/staff/bookings/${id}/details`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    }),
+  search: (q: string) =>
+    request<{ searchResults: BookingRecord[] }>(`/api/staff/operations?q=${encodeURIComponent(q)}`),
 };
 
 export interface AuditEntry {

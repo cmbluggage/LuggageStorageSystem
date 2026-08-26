@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/Button';
 import { formatUSD } from '@/lib/currency';
 import { createClient } from '@/lib/supabase/client';
 import { notify } from '@/lib/toast';
+import { BookingEditForm } from '@/components/admin/BookingEditForm';
+import { QrScanButton } from '@/components/staff/QrScanButton';
 import {
   Box, Plane, MapPin, LogOut, Briefcase, RefreshCw, Phone, MessageCircle,
   Search, Clock, AlertTriangle, PackageCheck, CheckCircle2, User, FileText,
-  ChevronDown, ChevronRight, Shield, X,
+  ChevronDown, ChevronRight, Shield, X, Pencil, SearchX,
 } from 'lucide-react';
 import type { BookingRecord } from '@/lib/db';
 
@@ -70,8 +72,10 @@ const WINDOW_OPTIONS = [
 
 export default function StaffDashboard() {
   const [groups, setGroups] = useState<OpsGroup[]>([]);
+  const [searchResults, setSearchResults] = useState<BookingRecord[] | null>(null);
   const [locations, setLocations] = useState<OpsLocation[]>([]);
   const [counts, setCounts] = useState({ total: 0, dropoffs: 0, pickups: 0, overdue: 0 });
+  const [editingId, setEditingId] = useState<string | null>(null);
 
   const [windowHours, setWindowHours] = useState(48);
   const [locationFilter, setLocationFilter] = useState<string>('');
@@ -108,9 +112,16 @@ export default function StaffDashboard() {
         return;
       }
 
-      setGroups(data.groups ?? []);
+      if (data.searchResults) {
+        setSearchResults(data.searchResults);
+        setGroups([]);
+        setCounts({ total: 0, dropoffs: 0, pickups: 0, overdue: 0 });
+      } else {
+        setSearchResults(null);
+        setGroups(data.groups ?? []);
+        setCounts(data.counts ?? { total: 0, dropoffs: 0, pickups: 0, overdue: 0 });
+      }
       setLocations(data.locations ?? []);
-      setCounts(data.counts ?? { total: 0, dropoffs: 0, pickups: 0, overdue: 0 });
       const syncedAt = data.generatedAt ? new Date(data.generatedAt) : new Date();
       setLastSynced(syncedAt);
       setNowMs(syncedAt.getTime());
@@ -132,11 +143,11 @@ export default function StaffDashboard() {
     return () => clearTimeout(t);
   }, [load, search]);
 
-  const advance = async (task: OpsTask, next: BookingStatus) => {
-    setBusyTask(task.taskId);
+  const setBookingStatus = async (bookingId: string, busyKey: string, next: BookingStatus) => {
+    setBusyTask(busyKey);
     setError('');
     try {
-      const res = await fetch(`/api/staff/bookings/${task.booking.id}`, {
+      const res = await fetch(`/api/staff/bookings/${bookingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookingStatus: next }),
@@ -148,7 +159,7 @@ export default function StaffDashboard() {
         notify.error(msg);
         return;
       }
-      notify.success(`Booking #${task.booking.id.slice(-6)} marked as ${next.replace('_', ' ')}.`);
+      notify.success(`Booking #${bookingId.slice(-6)} marked as ${next.replace('_', ' ')}.`);
       await load();
     } catch {
       const msg = 'Could not reach the server. The booking was not updated.';
@@ -158,6 +169,8 @@ export default function StaffDashboard() {
       setBusyTask(null);
     }
   };
+
+  const advance = (task: OpsTask, next: BookingStatus) => setBookingStatus(task.booking.id, task.taskId, next);
 
   const handleSignOut = async () => {
     notify.info('Signing out...');
@@ -233,20 +246,24 @@ export default function StaffDashboard() {
 
         {/* Controls */}
         <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 mb-6 flex flex-col gap-3 shadow-2xs">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search name, phone or booking reference…"
-              aria-label="Search bookings"
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm font-semibold
-                         text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-600
-                         focus:bg-white focus:ring-2 focus:ring-orange-600/20 transition-all"
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Find any booking — name, phone, email, passport, reference…"
+                aria-label="Search all bookings"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm font-semibold
+                           text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-600
+                           focus:bg-white focus:ring-2 focus:ring-orange-600/20 transition-all"
+              />
+            </div>
+            <QrScanButton onScan={(id) => setSearch(id)} />
           </div>
 
+          {!search.trim() && (
           <div className="flex flex-wrap items-center gap-2">
             <FilterGroup label="Window">
               {WINDOW_OPTIONS.map((o) => (
@@ -278,6 +295,7 @@ export default function StaffDashboard() {
               </>
             )}
           </div>
+          )}
         </div>
 
         {error && (
@@ -293,7 +311,50 @@ export default function StaffDashboard() {
           </div>
         )}
 
-        {loading && groups.length === 0 ? (
+        {search.trim() ? (
+          loading ? (
+            <div className="flex flex-col gap-3" aria-busy="true">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-24 bg-white rounded-2xl border border-slate-200 animate-pulse" />
+              ))}
+            </div>
+          ) : !searchResults || searchResults.length === 0 ? (
+            <div className="text-center py-20 bg-white rounded-2xl border border-slate-200 flex flex-col items-center">
+              <SearchX className="w-12 h-12 text-slate-300 mb-4" />
+              <p className="text-xl font-bold text-slate-900">No bookings found</p>
+              <p className="text-sm text-slate-500 mt-1 max-w-sm">
+                Nothing matches &ldquo;{search}&rdquo; by name, phone, email, passport or reference.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2.5">
+              {searchResults.map((b) =>
+                editingId === b.id ? (
+                  <div key={b.id} className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-4">
+                    <BookingEditForm
+                      booking={b}
+                      onCancel={() => setEditingId(null)}
+                      onSaved={() => {
+                        setEditingId(null);
+                        load();
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <SearchResultRow
+                    key={b.id}
+                    booking={b}
+                    expanded={expanded === b.id}
+                    onToggle={() => setExpanded(expanded === b.id ? null : b.id)}
+                    onEdit={() => setEditingId(b.id)}
+                    onSetStatus={(next) => setBookingStatus(b.id, b.id, next)}
+                    busy={busyTask === b.id}
+                  />
+                ),
+              )}
+            </div>
+          )
+        ) : loading && groups.length === 0 ? (
           <div className="flex flex-col gap-3" aria-busy="true">
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-24 bg-white rounded-2xl border border-slate-200 animate-pulse" />
@@ -527,6 +588,104 @@ function TaskRow({
           <Button variant="primary" size="sm" loading={busy} onClick={() => onAdvance(task, action.next)}>
             {action.label}
           </Button>
+        </div>
+      )}
+    </article>
+  );
+}
+
+// ── Search result row (any booking, any status/date) ────────────────────
+
+const STATUS_OPTIONS: BookingStatus[] = ['confirmed', 'in_transit', 'deposited', 'picked_up', 'cancelled'];
+
+function SearchResultRow({
+  booking,
+  expanded,
+  onToggle,
+  onEdit,
+  onSetStatus,
+  busy,
+}: {
+  booking: BookingRecord;
+  expanded: boolean;
+  onToggle: () => void;
+  onEdit: () => void;
+  onSetStatus: (next: BookingStatus) => void;
+  busy: boolean;
+}) {
+  const telHref = `tel:${booking.phone.replace(/[^\d+]/g, '')}`;
+  const waHref = `https://wa.me/${booking.phone.replace(/\D/g, '')}`;
+
+  return (
+    <article className="bg-white rounded-2xl border border-slate-200 shadow-2xs">
+      <button
+        onClick={onToggle}
+        aria-expanded={expanded}
+        className="w-full flex items-start gap-3 p-4 text-left hover:bg-slate-50 transition-colors cursor-pointer"
+      >
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-slate-100 text-slate-600 capitalize">
+              {booking.status.replace('_', ' ')}
+            </span>
+            {booking.isAirportBooking && <Plane className="w-3.5 h-3.5 text-slate-400" />}
+            {booking.paymentStatus !== 'paid' && (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 uppercase">
+                Collect {formatUSD(booking.grandTotalUsd)}
+              </span>
+            )}
+          </div>
+          <p className="text-sm font-extrabold text-slate-900 truncate">{booking.fullName || 'Guest'}</p>
+          <p className="text-xs font-medium text-slate-500 truncate">
+            {booking.phone} · {booking.dropoffLocationName} → {booking.pickupLocationName}
+          </p>
+        </div>
+        <span className="text-slate-400 flex-shrink-0">
+          {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </span>
+      </button>
+
+      {expanded && (
+        <div className="px-4 pb-4 pt-1 border-t border-slate-100">
+          <div className="flex items-center gap-2 my-3 flex-wrap">
+            <a href={telHref} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 hover:bg-orange-100 hover:text-orange-800 transition-colors">
+              <Phone className="w-3.5 h-3.5" /> Call
+            </a>
+            <a href={waHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 hover:bg-emerald-100 hover:text-emerald-800 transition-colors">
+              <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+            </a>
+            <button onClick={onEdit} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">
+              <Pencil className="w-3.5 h-3.5" /> Edit
+            </button>
+          </div>
+
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-xs mb-4">
+            <Detail icon={<User className="w-3.5 h-3.5" />} label="Reference" value={booking.id} mono />
+            <Detail icon={<FileText className="w-3.5 h-3.5" />} label="Passport / NIC" value={booking.passportNo || '—'} mono />
+            <Detail icon={<Box className="w-3.5 h-3.5" />} label="Drop-off" value={`${booking.dropoffLocationName} · ${new Date(booking.dropoffTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`} />
+            <Detail icon={<MapPin className="w-3.5 h-3.5" />} label="Pick-up" value={`${booking.pickupLocationName} · ${new Date(booking.pickupTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`} />
+            <Detail icon={<Clock className="w-3.5 h-3.5" />} label="Payment" value={`${booking.paymentMethod === 'stripe' ? 'Card' : 'Cash'} — ${booking.paymentStatus} (${formatUSD(booking.grandTotalUsd)})`} />
+            <Detail icon={<Shield className="w-3.5 h-3.5" />} label="Insurance" value={booking.insuranceEnabled ? `Yes — ${formatUSD(booking.insuranceTotalUsd)}` : 'No'} />
+          </dl>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>
+            {STATUS_OPTIONS.map((st) => (
+              <button
+                key={st}
+                disabled={busy || booking.status === st}
+                onClick={() => onSetStatus(st)}
+                className={[
+                  'px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer',
+                  booking.status === st
+                    ? 'bg-slate-900 text-white cursor-default'
+                    : 'bg-slate-100 text-slate-600 hover:bg-orange-50 hover:text-orange-700 disabled:opacity-40',
+                ].join(' ')}
+              >
+                {st.replace('_', ' ')}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </article>

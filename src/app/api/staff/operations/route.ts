@@ -1,4 +1,4 @@
-import { getOperationalBookings } from '@/lib/db';
+import { getOperationalBookings, searchAllBookings } from '@/lib/db';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff } from '@/lib/auth/guard';
 import { getSettings } from '@/lib/settings';
@@ -40,6 +40,21 @@ export async function GET(req: Request) {
     if (locErr) {
       console.error('[staff.operations] location fetch failed:', locErr);
       throw serverError('We could not load locations.');
+    }
+
+    // A search term looks up ANY booking (any status, any date) — the
+    // windowed/task view below only ever covers active work, which made a
+    // completed or historical booking unfindable from this screen.
+    if (search && search.trim()) {
+      const searchResults = await searchAllBookings(search, 50);
+      return ok(
+        {
+          searchResults,
+          locations: locations ?? [],
+          generatedAt: new Date().toISOString(),
+        },
+        NO_STORE,
+      );
     }
 
     const bookings = await getOperationalBookings({ windowHours, locationId, search });

@@ -6,9 +6,11 @@ import { bookingsApi, AdminApiError } from '@/lib/admin/api';
 import { notify } from '@/lib/toast';
 import type { BookingRecord } from '@/lib/db';
 import { PanelHeader, ErrorBanner, EmptyState } from './primitives';
+import { BookingEditForm } from './BookingEditForm';
+import { QrScanButton } from '@/components/staff/QrScanButton';
 import {
   Search, ChevronDown, ChevronRight, Phone, MessageCircle, Plane,
-  CreditCard, Banknote, ChevronLeft,
+  CreditCard, Banknote, ChevronLeft, Pencil,
 } from 'lucide-react';
 
 /**
@@ -123,18 +125,21 @@ export function BookingsPanel() {
       <ErrorBanner message={error} onDismiss={() => setError('')} />
 
       <div className="bg-white border border-slate-200 rounded-2xl p-3 sm:p-4 mb-5 flex flex-col gap-3 shadow-2xs">
-        <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => applySearch(e.target.value)}
-            placeholder="Search name, phone or booking reference…"
-            aria-label="Search bookings"
-            className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm font-semibold
-                       text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-600
-                       focus:bg-white focus:ring-2 focus:ring-orange-600/20 transition-all"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => applySearch(e.target.value)}
+              placeholder="Search name, phone, email, passport or reference…"
+              aria-label="Search bookings"
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm font-semibold
+                         text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-600
+                         focus:bg-white focus:ring-2 focus:ring-orange-600/20 transition-all"
+            />
+          </div>
+          <QrScanButton onScan={(id) => applySearch(id)} />
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
@@ -225,6 +230,7 @@ export function BookingsPanel() {
                     booking={b}
                     onUpdateStatus={handleUpdateStatus}
                     updating={updatingId === b.id}
+                    onSaved={load}
                   />
                 )}
               </article>
@@ -268,13 +274,31 @@ function BookingDetail({
   booking: b,
   onUpdateStatus,
   updating,
+  onSaved,
 }: {
   booking: BookingRecord;
   onUpdateStatus: (id: string, nextStatus: string) => Promise<void>;
   updating: boolean;
+  onSaved: () => void;
 }) {
+  const [editing, setEditing] = useState(false);
   const tel = `tel:${b.phone.replace(/[^\d+]/g, '')}`;
   const wa = `https://wa.me/${b.phone.replace(/\D/g, '')}`;
+
+  if (editing) {
+    return (
+      <div className="px-3.5 pb-4 pt-3 border-t border-slate-100">
+        <BookingEditForm
+          booking={b}
+          onCancel={() => setEditing(false)}
+          onSaved={() => {
+            setEditing(false);
+            onSaved();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="px-3.5 pb-4 pt-1 border-t border-slate-100">
@@ -296,6 +320,13 @@ function BookingDetail({
           >
             <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
           </a>
+          <button
+            onClick={() => setEditing(true)}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold
+                       bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+          >
+            <Pencil className="w-3.5 h-3.5" /> Edit
+          </button>
         </div>
 
         {/* Quick Status Transitions */}
