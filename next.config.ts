@@ -37,10 +37,12 @@ const securityHeaders = [
     key: 'Strict-Transport-Security',
     value: 'max-age=63072000; includeSubDomains; preload',
   },
-  // The app needs none of these; deny them rather than leave them open.
+  // The staff QR scanner (src/components/staff/QrScanner.tsx) needs the
+  // camera on this origin only; everything else the app doesn't use stays
+  // denied entirely rather than left open.
   {
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(), geolocation=(), interest-cohort=(), payment=()',
+    value: 'camera=(self), microphone=(), geolocation=(), interest-cohort=(), payment=()',
   },
 ];
 
