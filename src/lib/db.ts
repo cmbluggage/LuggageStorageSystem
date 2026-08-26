@@ -489,9 +489,13 @@ export async function updateBookingDetails(
     });
     if (!breakdown.duration.valid) throw badRequest('Invalid drop-off/pick-up time range.');
 
+    // Airport bookings are always card + settled immediately (the "simulated
+    // gateway settles instantly" rule from resolvePayment/saveBooking) — that
+    // invariant holds regardless of the balance-due logic below, exactly
+    // like booking creation and updateBookingPayment.
     const payment = resolvePayment(undefined, undefined, touchesAirport);
     const previousTotal = round2(Number(row.grand_total_usd ?? 0));
-    balanceNowDue = breakdown.grandTotal > previousTotal;
+    balanceNowDue = !touchesAirport && breakdown.grandTotal > previousTotal;
 
     Object.assign(bookingUpdate, {
       dropoff_location_id: dropoffLocation.id,
@@ -508,7 +512,7 @@ export async function updateBookingDetails(
       airport_service_usd: breakdown.airportServiceFee,
       grand_total_usd: breakdown.grandTotal,
       payment_method: payment.method,
-      ...(balanceNowDue ? { payment_status: 'pending' } : {}),
+      ...(touchesAirport ? { payment_status: 'paid' } : balanceNowDue ? { payment_status: 'pending' } : {}),
     });
   }
 

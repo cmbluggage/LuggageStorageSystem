@@ -2,7 +2,8 @@ import { getOperationalBookings, searchAllBookings } from '@/lib/db';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff } from '@/lib/auth/guard';
 import { getSettings } from '@/lib/settings';
-import { fail, ok, serverError, NO_STORE } from '@/lib/api/http';
+import { rateLimit } from '@/lib/security/rateLimit';
+import { fail, ok, serverError, tooManyRequests, NO_STORE } from '@/lib/api/http';
 
 export const dynamic = 'force-dynamic';
 
@@ -22,7 +23,15 @@ export type OpsTask =
  */
 export async function GET(req: Request) {
   try {
-    await requireStaff();
+    const actor = await requireStaff();
+
+    // Generous but present: this is an authenticated internal tool, but
+    // searchAllBookings can pull the whole booking history per request, so
+    // a compromised staff session shouldn't be able to script an unbounded
+    // customer-data crawl through it.
+    if (!rateLimit(`ops:${actor.userId}`, 180, 600_000).allowed) {
+      throw tooManyRequests('Too many requests. Please wait a moment.');
+    }
 
     const settings = await getSettings();
     const url = new URL(req.url);
