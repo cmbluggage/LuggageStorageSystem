@@ -255,10 +255,19 @@ export default function StaffDashboard() {
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Find any booking — name, phone, email, passport, reference…"
                 aria-label="Search all bookings"
-                className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm font-semibold
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-9 py-2.5 text-sm font-semibold
                            text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-600
                            focus:bg-white focus:ring-2 focus:ring-orange-600/20 transition-all"
               />
+              {search && (
+                <button
+                  onClick={() => setSearch('')}
+                  aria-label="Clear search"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200 cursor-pointer"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
             </div>
             <QrScanButton onScan={(id) => setSearch(id)} />
           </div>

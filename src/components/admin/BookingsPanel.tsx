@@ -10,7 +10,7 @@ import { BookingEditForm } from './BookingEditForm';
 import { QrScanButton } from '@/components/staff/QrScanButton';
 import {
   Search, ChevronDown, ChevronRight, Phone, MessageCircle, Plane,
-  CreditCard, Banknote, ChevronLeft, Pencil,
+  CreditCard, Banknote, ChevronLeft, Pencil, X,
 } from 'lucide-react';
 
 /**
@@ -134,10 +134,19 @@ export function BookingsPanel() {
               onChange={(e) => applySearch(e.target.value)}
               placeholder="Search name, phone, email, passport or reference…"
               aria-label="Search bookings"
-              className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-4 py-2.5 text-sm font-semibold
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl pl-10 pr-9 py-2.5 text-sm font-semibold
                          text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-600
                          focus:bg-white focus:ring-2 focus:ring-orange-600/20 transition-all"
             />
+            {search && (
+              <button
+                onClick={() => applySearch('')}
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full text-slate-400 hover:text-slate-600 hover:bg-slate-200 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
           <QrScanButton onScan={(id) => applySearch(id)} />
         </div>
