@@ -101,6 +101,21 @@ export const bookingLookupSchema = z.object({
   phone: phoneSchema,
 });
 
+/** Staff/SuperAdmin edit of an existing booking. Every field optional — a PATCH sends only what changed. */
+export const bookingEditSchema = z
+  .object({
+    fullName: safeText(120).min(2, 'Please enter a full name.').optional(),
+    email: emailSchema.optional().or(z.literal('')),
+    notes: safeText(1000).optional().or(z.literal('')),
+    dropoffLocationId: idSchema.optional(),
+    pickupLocationId: idSchema.optional(),
+    dropoffTime: isoDateTimeSchema.optional(),
+    pickupTime: isoDateTimeSchema.optional(),
+  })
+  .refine((s) => Object.keys(s).length > 0, 'No changes supplied.');
+
+export type BookingEditInput = z.infer<typeof bookingEditSchema>;
+
 // ── Admin: item tiers ────────────────────────────────────────────
 
 export const itemTierSchema = z.object({

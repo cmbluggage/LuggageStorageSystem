@@ -1,9 +1,11 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { conflict, notFound, serverError } from '@/lib/api/http';
+import { badRequest, conflict, notFound, serverError } from '@/lib/api/http';
 import { bookingTouchesAirport, isAirportLocation, resolvePayment, toApiMethod } from '@/lib/locations';
 import type { PaymentMethodApi, PaymentStatus } from '@/lib/locations';
-import type { LineItem } from '@/lib/pricing';
+import { calculateGrandTotal, round2, type LineItem, type TierPricing } from '@/lib/pricing';
+import { getSettings } from '@/lib/settings';
 import type { LocationRow } from '@/lib/supabase/types';
+import type { BookingEditInput } from '@/lib/validation/schemas';
 
 /**
  * Supabase data-access layer for bookings.
@@ -387,6 +389,153 @@ export async function updateBookingPayment(
   return updated;
 }
 
+/**
+ * Staff/SuperAdmin action: edit a booking's customer details, notes, or
+ * schedule (location + time).
+ *
+ * There is no live payment gateway here — payment_method is just a
+ * cash/card flag and staff always collect money in person. So an edit is
+ * never blocked by payment_status. Instead, if a location/time change
+ * recalculates a HIGHER grand total than what is on file, payment_status
+ * is reset to 'pending' so staff see a balance is owed; an equal or lower
+ * total leaves 'paid' alone. This intentionally has no partial-payment
+ * ledger — "pending" on an edited booking means "collect the recalculated
+ * total," matching how the business actually operates.
+ */
+export async function updateBookingDetails(
+  id: string,
+  patch: BookingEditInput,
+): Promise<{ booking: BookingRecord; balanceNowDue: boolean }> {
+  const supabase = createAdminClient();
+
+  const { data: current, error: readErr } = await supabase
+    .from('bookings')
+    .select(
+      `id, customer_id, payment_status, grand_total_usd, insurance_total_usd, dropoff_time, pickup_time,
+       dropoff_location_id, pickup_location_id,
+       booking_items(tier_id, quantity)`,
+    )
+    .eq('id', id)
+    .maybeSingle();
+
+  if (readErr) {
+    console.error('[db.updateBookingDetails] read failed:', readErr);
+    throw serverError('We could not load that booking. Please try again.');
+  }
+  if (!current) throw notFound('Booking not found.');
+
+  const row = current as any;
+  const scheduleChanged =
+    (patch.dropoffLocationId && patch.dropoffLocationId !== row.dropoff_location_id) ||
+    (patch.pickupLocationId && patch.pickupLocationId !== row.pickup_location_id) ||
+    (patch.dropoffTime && patch.dropoffTime !== row.dropoff_time) ||
+    (patch.pickupTime && patch.pickupTime !== row.pickup_time);
+
+  const bookingUpdate: Record<string, unknown> = {};
+  let balanceNowDue = false;
+
+  if (patch.notes !== undefined) bookingUpdate.notes = patch.notes || null;
+
+  if (scheduleChanged) {
+    const [{ data: locations, error: locErr }, { data: tiers, error: tierErr }, settings] = await Promise.all([
+      supabase.from('locations').select('*').eq('is_active', true),
+      supabase.from('item_tiers').select('id, rate_daily_usd, rate_weekly_usd, insurance_fee_usd'),
+      getSettings(),
+    ]);
+    if (locErr || !locations?.length) {
+      console.error('[db.updateBookingDetails] location fetch failed:', locErr);
+      throw serverError('We could not load storage locations. Please try again.');
+    }
+    if (tierErr) {
+      console.error('[db.updateBookingDetails] tier fetch failed:', tierErr);
+      throw serverError('We could not load current pricing. Please try again.');
+    }
+
+    const dropoffLocationId = patch.dropoffLocationId ?? row.dropoff_location_id;
+    const pickupLocationId = patch.pickupLocationId ?? row.pickup_location_id;
+    const dropoffLocation = locations.find((l) => l.id === dropoffLocationId);
+    const pickupLocation = locations.find((l) => l.id === pickupLocationId);
+    if (!dropoffLocation) throw badRequest('That drop-off location is not available.');
+    if (!pickupLocation) throw badRequest('That pick-up location is not available.');
+
+    const dropoffTime = patch.dropoffTime ?? row.dropoff_time;
+    const pickupTime = patch.pickupTime ?? row.pickup_time;
+    if (new Date(pickupTime).getTime() <= new Date(dropoffTime).getTime()) {
+      throw badRequest('Pick-up time must be after drop-off time.');
+    }
+
+    const quantities: Record<string, number> = {};
+    for (const item of row.booking_items ?? []) {
+      quantities[item.tier_id] = (quantities[item.tier_id] ?? 0) + Number(item.quantity ?? 0);
+    }
+    const tierPricing: TierPricing[] = (tiers ?? []).map((t: any) => ({
+      id: t.id,
+      rate_daily_usd: Number(t.rate_daily_usd),
+      rate_weekly_usd: Number(t.rate_weekly_usd),
+      insurance_fee_usd: Number(t.insurance_fee_usd ?? 0),
+    }));
+
+    const touchesAirport = bookingTouchesAirport(dropoffLocation, pickupLocation);
+    const breakdown = calculateGrandTotal({
+      tiers: tierPricing,
+      quantities,
+      dropoffISO: dropoffTime,
+      pickupISO: pickupTime,
+      dropoffSurchargeUsd: Number(dropoffLocation.dropoff_surcharge_usd ?? 0),
+      pickupSurchargeUsd: Number(pickupLocation.pickup_surcharge_usd ?? 0),
+      airportServiceFeeUsd: touchesAirport ? settings.airport_service_fee_usd : 0,
+      insuranceEnabled: Number(row.insurance_total_usd ?? 0) > 0,
+      config: { weekThresholdDays: settings.week_threshold_days, minBookingDays: settings.min_booking_days },
+    });
+    if (!breakdown.duration.valid) throw badRequest('Invalid drop-off/pick-up time range.');
+
+    const payment = resolvePayment(undefined, undefined, touchesAirport);
+    const previousTotal = round2(Number(row.grand_total_usd ?? 0));
+    balanceNowDue = breakdown.grandTotal > previousTotal;
+
+    Object.assign(bookingUpdate, {
+      dropoff_location_id: dropoffLocation.id,
+      pickup_location_id: pickupLocation.id,
+      dropoff_time: dropoffTime,
+      pickup_time: pickupTime,
+      storage_start_date: dropoffTime.split('T')[0],
+      storage_end_date: pickupTime.split('T')[0],
+      duration_days: breakdown.duration.count,
+      duration_value: breakdown.duration.count,
+      item_total_usd: breakdown.itemFee,
+      dropoff_surcharge_usd: breakdown.dropoffSurcharge,
+      pickup_surcharge_usd: breakdown.pickupSurcharge,
+      airport_service_usd: breakdown.airportServiceFee,
+      grand_total_usd: breakdown.grandTotal,
+      payment_method: payment.method,
+      ...(balanceNowDue ? { payment_status: 'pending' } : {}),
+    });
+  }
+
+  if (patch.fullName !== undefined || patch.email !== undefined) {
+    const { error: custErr } = await supabase
+      .from('customers')
+      .update({
+        ...(patch.fullName !== undefined ? { full_name: patch.fullName } : {}),
+        ...(patch.email !== undefined ? { email: patch.email || null } : {}),
+      })
+      .eq('id', row.customer_id);
+    if (custErr) console.error('[db.updateBookingDetails] customer update failed:', custErr);
+  }
+
+  if (Object.keys(bookingUpdate).length > 0) {
+    const { error: updateErr } = await supabase.from('bookings').update(bookingUpdate as never).eq('id', id);
+    if (updateErr) {
+      console.error('[db.updateBookingDetails] booking update failed:', updateErr);
+      throw serverError('We could not save those changes. Please try again.');
+    }
+  }
+
+  const updated = await getBookingById(id);
+  if (!updated) throw notFound('Booking not found.');
+  return { booking: updated, balanceNowDue };
+}
+
 /** Staff action: advance or cancel a booking. */
 export async function updateBookingStatus(
   id: string,
@@ -520,11 +669,48 @@ export async function listBookings(
       (b) =>
         b.phone.toLowerCase().includes(term) ||
         b.fullName.toLowerCase().includes(term) ||
+        b.email.toLowerCase().includes(term) ||
+        b.passportNo.toLowerCase().includes(term) ||
         b.id.toLowerCase().includes(term),
     );
   }
 
   return { bookings, total: count ?? bookings.length };
+}
+
+/**
+ * Unscoped booking search for staff — any status, any date. The operations
+ * board is deliberately limited to a rolling window of active work, which
+ * made it impossible for staff to find a completed or historical booking by
+ * name/phone/passport; this is the lookup path for that.
+ */
+export async function searchAllBookings(term: string, limit = 50): Promise<BookingRecord[]> {
+  const supabase = createAdminClient();
+  const needle = term.trim().toLowerCase();
+  if (!needle) return [];
+
+  const { data, error } = await supabase
+    .from('bookings')
+    .select(BOOKING_SELECT)
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  if (error) {
+    console.error('[db.searchAllBookings] failed:', error);
+    throw serverError('We could not search bookings. Please try again.');
+  }
+
+  return (data ?? [])
+    .map(mapBooking)
+    .filter(
+      (b) =>
+        b.phone.toLowerCase().includes(needle) ||
+        b.fullName.toLowerCase().includes(needle) ||
+        b.email.toLowerCase().includes(needle) ||
+        b.passportNo.toLowerCase().includes(needle) ||
+        b.id.toLowerCase().includes(needle),
+    )
+    .slice(0, limit);
 }
 
 /* eslint-enable @typescript-eslint/no-explicit-any */
