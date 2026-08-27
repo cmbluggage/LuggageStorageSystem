@@ -8,6 +8,7 @@ import { notify } from '@/lib/toast';
 import type { BookingRecord } from '@/lib/db';
 import { PanelHeader, ErrorBanner, EmptyState } from './primitives';
 import { BookingEditForm } from './BookingEditForm';
+import { CashCollectButton } from './CashCollectButton';
 import { QrScanButton } from '@/components/staff/QrScanButton';
 import {
   Search, ChevronDown, ChevronRight, Phone, MessageCircle, Plane,
@@ -76,11 +77,12 @@ export function BookingsPanel() {
     }
   }, [status, paymentStatus, search, page]);
 
-  const handleUpdateStatus = async (bookingId: string, nextStatus: string) => {
+  const handleUpdateStatus = async (bookingId: string, nextStatus: string, customerName?: string) => {
     setUpdatingId(bookingId);
     try {
       await bookingsApi.setStatus(bookingId, nextStatus);
-      notify.success(`Booking status updated to "${nextStatus.replace('_', ' ')}".`);
+      const who = customerName ? `${customerName} (${bookingRef(bookingId)})` : bookingRef(bookingId);
+      notify.success(`${who} marked as ${nextStatus.replace('_', ' ')}.`);
       await load();
     } catch (e) {
       const msg = e instanceof AdminApiError ? e.message : 'Could not update status.';
@@ -287,7 +289,7 @@ function BookingDetail({
   onSaved,
 }: {
   booking: BookingRecord;
-  onUpdateStatus: (id: string, nextStatus: string) => Promise<void>;
+  onUpdateStatus: (id: string, nextStatus: string, customerName?: string) => Promise<void>;
   updating: boolean;
   onSaved: () => void;
 }) {
@@ -337,6 +339,7 @@ function BookingDetail({
           >
             <Pencil className="w-3.5 h-3.5" /> Edit
           </button>
+          <CashCollectButton booking={b} onCollected={onSaved} />
         </div>
 
         {/* Quick Status Transitions */}
@@ -346,7 +349,7 @@ function BookingDetail({
             <button
               key={st}
               disabled={updating || b.status === st}
-              onClick={() => onUpdateStatus(b.id, st)}
+              onClick={() => onUpdateStatus(b.id, st, b.fullName)}
               className={[
                 'px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer',
                 b.status === st
@@ -364,6 +367,7 @@ function BookingDetail({
         <Row label="Reference" value={bookingRef(b.id)} title={b.id} mono />
         <Row label="Email" value={b.email || '—'} />
         <Row label="Passport / NIC" value={b.passportNo || '—'} mono />
+        <Row label="Flight #" value={b.flightNumber || '—'} />
         <Row label="Duration" value={`${b.durationDays} day(s)`} />
         <Row label="Drop-off" value={`${b.dropoffLocationName} · ${fmt(b.dropoffTime)}`} />
         <Row label="Pick-up" value={`${b.pickupLocationName} · ${fmt(b.pickupTime)}`} />
@@ -384,7 +388,6 @@ function BookingDetail({
           <Charge label="Storage subtotal" value={b.itemTotalUsd} />
           {b.dropoffSurchargeUsd > 0 && <Charge label="Drop-off surcharge" value={b.dropoffSurchargeUsd} />}
           {b.pickupSurchargeUsd > 0 && <Charge label="Pick-up surcharge" value={b.pickupSurchargeUsd} />}
-          {b.airportServiceUsd > 0 && <Charge label="Airport handling" value={b.airportServiceUsd} />}
           {b.insuranceTotalUsd > 0 && <Charge label="Insurance" value={b.insuranceTotalUsd} />}
           <li className="flex justify-between gap-3 pt-2 mt-1 border-t border-slate-200">
             <span className="font-extrabold text-slate-900">Total</span>
@@ -395,7 +398,7 @@ function BookingDetail({
 
       {b.notes && (
         <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
-          <p className="text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-0.5">Note (may be a flight #)</p>
+          <p className="text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-0.5">Customer note</p>
           <p className="text-xs font-medium text-amber-950">{b.notes}</p>
         </div>
       )}

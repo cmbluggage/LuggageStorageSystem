@@ -56,7 +56,6 @@ interface CatalogEditorProps<Row extends { id: string; is_active: boolean }> {
   renderTitle: (row: Row) => React.ReactNode;
   /** Secondary line summarising the important values. */
   renderSummary: (row: Row) => React.ReactNode;
-  onNotify: (msg: string) => void;
 }
 
 export function CatalogEditor<Row extends { id: string; is_active: boolean }>({
@@ -68,7 +67,6 @@ export function CatalogEditor<Row extends { id: string; is_active: boolean }>({
   blank,
   renderTitle,
   renderSummary,
-  onNotify,
 }: CatalogEditorProps<Row>) {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,7 +118,6 @@ export function CatalogEditor<Row extends { id: string; is_active: boolean }>({
       await load();
       setEditingId(null);
       notify.success(`${noun.charAt(0).toUpperCase() + noun.slice(1)} updated successfully.`);
-      onNotify(`${noun} updated.`);
     } catch (e) {
       const msg = e instanceof AdminApiError ? e.message : `Could not update that ${noun}.`;
       setError(msg);
@@ -141,7 +138,6 @@ export function CatalogEditor<Row extends { id: string; is_active: boolean }>({
       setCreating(false);
       setNewDraft(blank as Partial<Row>);
       notify.success(`${noun.charAt(0).toUpperCase() + noun.slice(1)} created successfully.`);
-      onNotify(`${noun} created.`);
     } catch (e) {
       const msg = e instanceof AdminApiError ? e.message : `Could not create that ${noun}.`;
       setError(msg);
@@ -160,7 +156,6 @@ export function CatalogEditor<Row extends { id: string; is_active: boolean }>({
       await load();
       setConfirmArchive(null);
       notify.success(`${noun.charAt(0).toUpperCase() + noun.slice(1)} archived.`);
-      onNotify(`${noun} archived.`);
     } catch (e) {
       const msg = e instanceof AdminApiError ? e.message : `Could not archive that ${noun}.`;
       setError(msg);
@@ -176,7 +171,6 @@ export function CatalogEditor<Row extends { id: string; is_active: boolean }>({
       await api.update({ id: row.id, is_active: true } as never);
       await load();
       notify.success(`${noun.charAt(0).toUpperCase() + noun.slice(1)} restored.`);
-      onNotify(`${noun} restored.`);
     } catch (e) {
       const msg = e instanceof AdminApiError ? e.message : `Could not restore that ${noun}.`;
       setError(msg);

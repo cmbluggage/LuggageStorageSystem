@@ -127,14 +127,18 @@ export interface Database {
           item_total_usd: number;
           dropoff_surcharge_usd: number;
           pickup_surcharge_usd: number;
-          airport_service_usd: number;
           insurance_total_usd: number;
           grand_total_usd: number;
           payment_method: 'cash' | 'stripe_simulated';
           payment_status: 'pending' | 'paid' | 'failed';
           booking_status: 'confirmed' | 'in_transit' | 'deposited' | 'picked_up' | 'cancelled';
           qr_code_token: string;
+          /** Added in migration 006 — was previously overloaded into `notes`. */
+          flight_number: string | null;
           notes: string | null;
+          /** Added in migration 006 — who/when a cash payment was physically collected. */
+          cash_collected_by: string | null;
+          cash_collected_at: string | null;
           /** Added in migration 004 — previously computed but never persisted. */
           insurance_enabled: boolean;
           duration_days: number | null;
@@ -179,6 +183,13 @@ export interface Database {
             isOneToOne: false;
             referencedRelation: 'locations';
             referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'bookings_cash_collected_by_fkey';
+            columns: ['cash_collected_by'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['user_id'];
           },
         ];
       };

@@ -1,9 +1,8 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { formatUSD } from '@/lib/currency';
-import { ToastContainer, type ToastMessage } from '@/components/ui/Toast';
 import { SettingsPanel } from '@/components/admin/SettingsPanel';
 import { CatalogEditor, type FieldDef } from '@/components/admin/CatalogEditor';
 import { TimeSlotsPanel } from '@/components/admin/TimeSlotsPanel';
@@ -91,14 +90,7 @@ const ADDON_FIELDS: FieldDef<AddonRow>[] = [
 
 export default function AdminPanel() {
   const [tab, setTab] = useState<AdminTab>('bookings');
-  const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [navOpen, setNavOpen] = useState(false);
-
-  const notify = useCallback((title: string) => {
-    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-    // ToastContainer dismisses on its own timer; no cleanup needed here.
-    setToasts((t) => [...t, { id, title, type: 'success' }]);
-  }, []);
 
   const handleSignOut = async () => {
     await createClient().auth.signOut();
@@ -185,7 +177,7 @@ export default function AdminPanel() {
         </nav>
 
         <main className="flex-1 min-w-0" id="admin-main">
-          {tab === 'settings' && <SettingsPanel onNotify={notify} />}
+          {tab === 'settings' && <SettingsPanel />}
 
           {tab === 'item-tiers' && (
             <CatalogEditor<ItemTierRow>
@@ -208,7 +200,6 @@ export default function AdminPanel() {
                   {formatUSD(r.insurance_fee_usd)}
                 </>
               )}
-              onNotify={notify}
             />
           )}
 
@@ -236,7 +227,6 @@ export default function AdminPanel() {
                   Drop-off {formatUSD(r.dropoff_surcharge_usd)} · Pick-up {formatUSD(r.pickup_surcharge_usd)}
                 </>
               )}
-              onNotify={notify}
             />
           )}
 
@@ -255,17 +245,14 @@ export default function AdminPanel() {
                 </span>
               )}
               renderSummary={(r) => <>{formatUSD(r.fee_usd)} · {r.description || 'No description'}</>}
-              onNotify={notify}
             />
           )}
 
-          {tab === 'time-slots' && <TimeSlotsPanel onNotify={notify} />}
+          {tab === 'time-slots' && <TimeSlotsPanel />}
           {tab === 'bookings' && <BookingsPanel />}
           {tab === 'audit-log' && <AuditPanel />}
         </main>
       </div>
-
-      <ToastContainer toasts={toasts} onDismiss={(id) => setToasts((t) => t.filter((x) => x.id !== id))} />
     </div>
   );
 }

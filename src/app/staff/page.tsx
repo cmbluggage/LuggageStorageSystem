@@ -7,6 +7,7 @@ import { bookingRef } from '@/lib/format';
 import { createClient } from '@/lib/supabase/client';
 import { notify } from '@/lib/toast';
 import { BookingEditForm } from '@/components/admin/BookingEditForm';
+import { CashCollectButton } from '@/components/admin/CashCollectButton';
 import { QrScanButton } from '@/components/staff/QrScanButton';
 import {
   Box, Plane, MapPin, LogOut, Briefcase, RefreshCw, Phone, MessageCircle,
@@ -144,7 +145,12 @@ export default function StaffDashboard() {
     return () => clearTimeout(t);
   }, [load, search]);
 
-  const setBookingStatus = async (bookingId: string, busyKey: string, next: BookingStatus) => {
+  const setBookingStatus = async (
+    bookingId: string,
+    busyKey: string,
+    next: BookingStatus,
+    customerName?: string,
+  ) => {
     setBusyTask(busyKey);
     setError('');
     try {
@@ -160,7 +166,8 @@ export default function StaffDashboard() {
         notify.error(msg);
         return;
       }
-      notify.success(`Booking #${bookingId.slice(-6)} marked as ${next.replace('_', ' ')}.`);
+      const who = customerName ? `${customerName} (${bookingRef(bookingId)})` : bookingRef(bookingId);
+      notify.success(`${who} marked as ${next.replace('_', ' ')}.`);
       await load();
     } catch {
       const msg = 'Could not reach the server. The booking was not updated.';
@@ -171,7 +178,8 @@ export default function StaffDashboard() {
     }
   };
 
-  const advance = (task: OpsTask, next: BookingStatus) => setBookingStatus(task.booking.id, task.taskId, next);
+  const advance = (task: OpsTask, next: BookingStatus) =>
+    setBookingStatus(task.booking.id, task.taskId, next, task.booking.fullName);
 
   const handleSignOut = async () => {
     notify.info('Signing out...');
@@ -357,7 +365,8 @@ export default function StaffDashboard() {
                     expanded={expanded === b.id}
                     onToggle={() => setExpanded(expanded === b.id ? null : b.id)}
                     onEdit={() => setEditingId(b.id)}
-                    onSetStatus={(next) => setBookingStatus(b.id, b.id, next)}
+                    onSetStatus={(next) => setBookingStatus(b.id, b.id, next, b.fullName)}
+                    onRefresh={load}
                     busy={busyTask === b.id}
                   />
                 ),
@@ -564,7 +573,8 @@ function TaskRow({
 
       {expanded && (
         <div className="px-4 pb-4 pt-1 border-t border-slate-100 mt-1">
-          <div className="flex justify-end mb-2">
+          <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+            <CashCollectButton booking={booking} onCollected={onEditSaved} />
             <button
               onClick={onEdit}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
@@ -576,6 +586,7 @@ function TaskRow({
             <Detail icon={<Phone className="w-3.5 h-3.5" />} label="Phone" value={booking.phone} mono />
             <Detail icon={<User className="w-3.5 h-3.5" />} label="Reference" value={bookingRef(booking.id)} title={booking.id} mono />
             <Detail icon={<FileText className="w-3.5 h-3.5" />} label="Passport / NIC" value={booking.passportNo || '—'} mono />
+            <Detail icon={<Plane className="w-3.5 h-3.5" />} label="Flight #" value={booking.flightNumber || '—'} />
             <Detail
               icon={<Shield className="w-3.5 h-3.5" />}
               label="Insurance"
@@ -593,7 +604,7 @@ function TaskRow({
 
           {booking.notes && (
             <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200">
-              <p className="text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-0.5">Note (may be a flight #)</p>
+              <p className="text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-0.5">Customer note</p>
               <p className="text-xs font-medium text-amber-950">{booking.notes}</p>
             </div>
           )}
@@ -645,6 +656,7 @@ function SearchResultRow({
   onToggle,
   onEdit,
   onSetStatus,
+  onRefresh,
   busy,
 }: {
   booking: BookingRecord;
@@ -652,6 +664,7 @@ function SearchResultRow({
   onToggle: () => void;
   onEdit: () => void;
   onSetStatus: (next: BookingStatus) => void;
+  onRefresh: () => void;
   busy: boolean;
 }) {
   const telHref = `tel:${booking.phone.replace(/[^\d+]/g, '')}`;
@@ -698,16 +711,25 @@ function SearchResultRow({
             <button onClick={onEdit} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer">
               <Pencil className="w-3.5 h-3.5" /> Edit
             </button>
+            <CashCollectButton booking={booking} onCollected={onRefresh} />
           </div>
 
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-xs mb-4">
             <Detail icon={<User className="w-3.5 h-3.5" />} label="Reference" value={bookingRef(booking.id)} title={booking.id} mono />
             <Detail icon={<FileText className="w-3.5 h-3.5" />} label="Passport / NIC" value={booking.passportNo || '—'} mono />
+            <Detail icon={<Plane className="w-3.5 h-3.5" />} label="Flight #" value={booking.flightNumber || '—'} />
             <Detail icon={<Box className="w-3.5 h-3.5" />} label="Drop-off" value={`${booking.dropoffLocationName} · ${new Date(booking.dropoffTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`} />
             <Detail icon={<MapPin className="w-3.5 h-3.5" />} label="Pick-up" value={`${booking.pickupLocationName} · ${new Date(booking.pickupTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`} />
             <Detail icon={<Clock className="w-3.5 h-3.5" />} label="Payment" value={`${booking.paymentMethod === 'stripe' ? 'Card' : 'Cash'} — ${booking.paymentStatus} (${formatUSD(booking.grandTotalUsd)})`} />
             <Detail icon={<Shield className="w-3.5 h-3.5" />} label="Insurance" value={booking.insuranceEnabled ? `Yes — ${formatUSD(booking.insuranceTotalUsd)}` : 'No'} />
           </dl>
+
+          {booking.notes && (
+            <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200">
+              <p className="text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-0.5">Customer note</p>
+              <p className="text-xs font-medium text-amber-950">{booking.notes}</p>
+            </div>
+          )}
 
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>

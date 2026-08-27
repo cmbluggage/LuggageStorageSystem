@@ -18,7 +18,6 @@ export interface AppSettings {
   insurance_default_on: boolean;
   insurance_label: string;
   week_threshold_days: number;
-  airport_service_fee_usd: number;
   min_booking_days: number;
   max_booking_days: number;
   max_items_per_booking: number;
@@ -39,7 +38,6 @@ export const DEFAULT_SETTINGS: AppSettings = {
   insurance_default_on: false,
   insurance_label: 'Damage & Loss Protection',
   week_threshold_days: 7,
-  airport_service_fee_usd: 10.0,
   min_booking_days: 1,
   max_booking_days: 90,
   max_items_per_booking: 20,
@@ -91,14 +89,6 @@ export const DEFAULT_SETTING_METADATA: Record<
     value_type: 'number',
     min_value: 1,
     max_value: 365,
-  },
-  airport_service_fee_usd: {
-    label: 'Airport Handling Fee (USD)',
-    description: 'Flat fee applied when either leg of the booking is an airport location.',
-    category: 'pricing',
-    value_type: 'number',
-    min_value: 0,
-    max_value: 1000,
   },
   min_booking_days: {
     label: 'Minimum Billable Days',
@@ -289,7 +279,6 @@ export type PublicSettings = Pick<
   | 'insurance_default_on'
   | 'insurance_label'
   | 'week_threshold_days'
-  | 'airport_service_fee_usd'
   | 'min_booking_days'
   | 'max_booking_days'
   | 'max_items_per_booking'
@@ -307,7 +296,6 @@ export function toPublicSettings(s: AppSettings): PublicSettings {
     insurance_default_on: s.insurance_default_on,
     insurance_label: s.insurance_label,
     week_threshold_days: s.week_threshold_days,
-    airport_service_fee_usd: s.airport_service_fee_usd,
     min_booking_days: s.min_booking_days,
     max_booking_days: s.max_booking_days,
     max_items_per_booking: s.max_items_per_booking,

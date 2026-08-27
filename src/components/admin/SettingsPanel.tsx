@@ -52,7 +52,7 @@ function valueOf(row: AppSettingRow): string | number | boolean {
   return typeof v === 'string' ? v : String(v ?? '');
 }
 
-export function SettingsPanel({ onNotify }: { onNotify: (msg: string) => void }) {
+export function SettingsPanel() {
   const [rows, setRows] = useState<AppSettingRow[]>([]);
   const [draft, setDraft] = useState<Draft>({});
   const [loading, setLoading] = useState(true);
@@ -100,7 +100,6 @@ export function SettingsPanel({ onNotify }: { onNotify: (msg: string) => void })
       setJustSaved(true);
       const count = Object.keys(changed).length;
       notify.success(`Saved ${count} setting${count === 1 ? '' : 's'}.`);
-      onNotify(`Saved ${count} setting(s).`);
       setTimeout(() => setJustSaved(false), 2500);
     } catch (e) {
       const msg = e instanceof AdminApiError ? e.message : 'Could not save settings.';

@@ -11,6 +11,8 @@ export const dynamic = 'force-dynamic';
  * The booking id is an unguessable UUID and acts as the capability to view
  * it — the customer reaches this from their own confirmation link. The
  * passport number is stripped: it is never needed to render a booking.
+ * The collecting staff member's name is stripped too — internal identity,
+ * not something a customer needs.
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -20,8 +22,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const booking = await getBookingById(id);
     if (!booking) throw notFound('We could not find that booking.');
 
-    const { passportNo, ...safe } = booking;
+    const { passportNo, cashCollectedByName, ...safe } = booking;
     void passportNo;
+    void cashCollectedByName;
     return ok({ booking: safe }, NO_STORE);
   } catch (err) {
     return fail(err, 'bookings.[id].GET');
@@ -49,8 +52,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const { paymentMethod, paymentStatus } = await parseBody(req, updatePaymentSchema);
     const booking = await updateBookingPayment(id, paymentMethod, paymentStatus);
 
-    const { passportNo, ...safe } = booking;
+    const { passportNo, cashCollectedByName, ...safe } = booking;
     void passportNo;
+    void cashCollectedByName;
     return ok({ booking: safe }, NO_STORE);
   } catch (err) {
     return fail(err, 'bookings.[id].PATCH');

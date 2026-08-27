@@ -53,7 +53,7 @@ function autoLabel(start: string, end: string): string {
   return `${fmt(start)} - ${fmt(end)}`;
 }
 
-export function TimeSlotsPanel({ onNotify }: { onNotify: (msg: string) => void }) {
+export function TimeSlotsPanel() {
   const [slots, setSlots] = useState<Draft[]>([]);
   const [original, setOriginal] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -152,7 +152,6 @@ export function TimeSlotsPanel({ onNotify }: { onNotify: (msg: string) => void }
       await timeSlotsApi.replace(payload);
       await load();
       notify.success('Operating schedule saved successfully.');
-      onNotify('Operating schedule saved.');
     } catch (e) {
       const msg = e instanceof AdminApiError ? e.message : 'Could not save the schedule.';
       setError(msg);

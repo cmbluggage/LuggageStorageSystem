@@ -138,7 +138,6 @@ export async function POST(req: Request) {
       pickupISO: input.pickupTime,
       dropoffSurchargeUsd: Number(dropoffLocation.dropoff_surcharge_usd ?? 0),
       pickupSurchargeUsd: Number(pickupLocation.pickup_surcharge_usd ?? 0),
-      airportServiceFeeUsd: touchesAirport ? settings.airport_service_fee_usd : 0,
       insuranceEnabled,
       config: {
         weekThresholdDays: settings.week_threshold_days,
@@ -157,6 +156,7 @@ export async function POST(req: Request) {
       fullName: input.fullName,
       email: input.email || undefined,
       passportNo: input.passportNo,
+      flightNumber: input.flightNumber || undefined,
       notes: input.notes || undefined,
       dropoffLocation,
       pickupLocation,
@@ -171,7 +171,6 @@ export async function POST(req: Request) {
       dropoffSurchargeUsd: breakdown.dropoffSurcharge,
       pickupSurchargeUsd: breakdown.pickupSurcharge,
       insuranceTotalUsd: breakdown.insuranceFee,
-      airportServiceUsd: breakdown.airportServiceFee,
       grandTotalUsd: breakdown.grandTotal,
       // Airport bookings are forced to card inside saveBooking regardless.
       requestedPaymentMethod: touchesAirport ? 'stripe' : 'cash',
@@ -201,10 +200,12 @@ export async function GET(req: Request) {
     const { phone } = parseQuery(req.url, bookingLookupSchema);
     const records = await getBookingsByPhone(phone);
 
-    // Strip the identity document from the list view — it is never needed
-    // to display a booking and should not be handed out on a phone lookup.
-    const safe = records.map(({ passportNo, ...rest }) => {
+    // Strip the identity document and internal staff identity from the
+    // list view — neither is ever needed to display a booking to its
+    // customer.
+    const safe = records.map(({ passportNo, cashCollectedByName, ...rest }) => {
       void passportNo;
+      void cashCollectedByName;
       return rest;
     });
 

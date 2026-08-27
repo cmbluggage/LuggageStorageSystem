@@ -139,6 +139,8 @@ export const bookingsApi = {
     }),
   search: (q: string) =>
     request<{ searchResults: BookingRecord[] }>(`/api/staff/operations?q=${encodeURIComponent(q)}`),
+  collectCash: (id: string) =>
+    request<{ booking: BookingRecord }>(`/api/staff/bookings/${id}/collect-cash`, { method: 'PATCH' }),
 };
 
 export interface AuditEntry {

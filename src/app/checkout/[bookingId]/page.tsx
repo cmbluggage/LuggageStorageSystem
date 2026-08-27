@@ -20,7 +20,6 @@ import {
   Phone,
   Mail,
   FileText,
-  Plane,
 } from 'lucide-react';
 import type { BookingRecord } from '@/lib/db';
 import { bookingTouchesAirport, type LocationFlags } from '@/lib/locations';
@@ -31,7 +30,7 @@ interface CheckoutSessionData {
   fullName?: string;
   email?: string;
   passportNo?: string;
-  notes?: string;
+  flightNumber?: string;
   dropoffLocation?: CheckoutLocation | null;
   pickupLocation?: CheckoutLocation | null;
   dropoffId?: string | null;
@@ -272,23 +271,17 @@ export default function CheckoutPage() {
       }
     });
 
-    const airportServiceFee =
-      sessionData?.breakdown?.airportServiceFee ??
-      booking?.airportServiceUsd ??
-      (isAirportBooking ? 10.0 : 0);
-
-    const grandTotal = itemFee + dropoffSurcharge + pickupSurcharge + airportServiceFee + insuranceFee;
+    const grandTotal = itemFee + dropoffSurcharge + pickupSurcharge + insuranceFee;
 
     return {
       duration,
       itemFee,
       dropoffSurcharge,
       pickupSurcharge,
-      airportServiceFee,
       insuranceFee,
       grandTotal,
     };
-  }, [sessionData, booking, duration, dropoffLoc, pickupLoc, itemsList, isAirportBooking]);
+  }, [sessionData, booking, duration, dropoffLoc, pickupLoc, itemsList]);
 
   const grandTotal = sessionData?.grandTotalUsd || booking?.grandTotalUsd || breakdown.grandTotal || 0;
 
@@ -665,16 +658,6 @@ export default function CheckoutPage() {
                   <div className="flex justify-between items-center py-1 text-xs pb-3 border-b border-slate-100">
                     <span className="font-bold text-slate-800">Storage Items</span>
                     <span className="font-extrabold text-slate-900">{formatUSD(breakdown.itemFee || 0)}</span>
-                  </div>
-                )}
-
-                {/* Airport Delivery Service */}
-                {breakdown.airportServiceFee > 0 && (
-                  <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                    <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                      <Plane className="w-3.5 h-3.5 text-orange-600" /> Airport Delivery Service
-                    </span>
-                    <span className="font-extrabold text-slate-900">+{formatUSD(breakdown.airportServiceFee)}</span>
                   </div>
                 )}
 

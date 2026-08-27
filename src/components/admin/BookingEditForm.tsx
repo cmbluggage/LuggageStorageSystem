@@ -49,6 +49,7 @@ export function BookingEditForm({
 }) {
   const [fullName, setFullName] = useState(booking.fullName);
   const [email, setEmail] = useState(booking.email);
+  const [flightNumber, setFlightNumber] = useState(booking.flightNumber ?? '');
   const [notes, setNotes] = useState(booking.notes ?? '');
   const [dropoffLocationId, setDropoffLocationId] = useState(booking.dropoffLocationId);
   const [pickupLocationId, setPickupLocationId] = useState(booking.pickupLocationId);
@@ -84,6 +85,7 @@ export function BookingEditForm({
     const patch: Record<string, unknown> = {};
     if (fullName.trim() !== booking.fullName) patch.fullName = fullName.trim();
     if (email.trim() !== booking.email) patch.email = email.trim();
+    if (flightNumber.trim() !== (booking.flightNumber ?? '')) patch.flightNumber = flightNumber.trim();
     if (notes !== (booking.notes ?? '')) patch.notes = notes;
     if (dropoffLocationId !== booking.dropoffLocationId) patch.dropoffLocationId = dropoffLocationId;
     if (pickupLocationId !== booking.pickupLocationId) patch.pickupLocationId = pickupLocationId;
@@ -135,6 +137,15 @@ export function BookingEditForm({
           />
         </Field>
       </div>
+
+      <Field label="Flight #" error={fieldErrors.flightNumber}>
+        <input
+          value={flightNumber}
+          onChange={(e) => setFlightNumber(e.target.value)}
+          placeholder="e.g. UL 504"
+          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-xs font-semibold text-slate-900 focus:outline-none focus:border-orange-600"
+        />
+      </Field>
 
       <Field label="Notes" error={fieldErrors.notes}>
         <textarea

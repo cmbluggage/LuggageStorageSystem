@@ -24,7 +24,6 @@ const FALLBACK_SETTINGS: PublicSettings = {
   insurance_default_on: DEFAULT_SETTINGS.insurance_default_on,
   insurance_label: DEFAULT_SETTINGS.insurance_label,
   week_threshold_days: DEFAULT_SETTINGS.week_threshold_days,
-  airport_service_fee_usd: DEFAULT_SETTINGS.airport_service_fee_usd,
   min_booking_days: DEFAULT_SETTINGS.min_booking_days,
   max_booking_days: DEFAULT_SETTINGS.max_booking_days,
   max_items_per_booking: DEFAULT_SETTINGS.max_items_per_booking,
@@ -81,7 +80,7 @@ function BookingWizard() {
   const [fullName,      setFullName]      = useState('');
   const [email,         setEmail]         = useState('');
   const [passportNo,    setPassportNo]    = useState('');
-  const [specialNotes,  setSpecialNotes]  = useState('');
+  const [flightNumber,  setFlightNumber]  = useState('');
   const [countryCode,   setCountryCode]   = useState('+94');
   const [whatsappNo,    setWhatsappNo]    = useState('');
 
@@ -154,7 +153,7 @@ function BookingWizard() {
           if (state.fullName) setFullName(state.fullName);
           if (state.email) setEmail(state.email);
           if (state.passportNo) setPassportNo(state.passportNo);
-          if (state.specialNotes) setSpecialNotes(state.specialNotes);
+          if (state.flightNumber) setFlightNumber(state.flightNumber);
           if (state.countryCode) setCountryCode(state.countryCode);
           if (state.whatsappNo) setWhatsappNo(state.whatsappNo);
           if (state.bookingStep) setBookingStep(state.bookingStep);
@@ -188,10 +187,10 @@ function BookingWizard() {
     if (!hasLoaded) return;
     sessionStorage.setItem('stowaway_booking_state', JSON.stringify({
       quantities, dropoffId, pickupId, dropoffTime, pickupTime,
-      insuranceEnabled, fullName, email, passportNo, specialNotes,
+      insuranceEnabled, fullName, email, passportNo, flightNumber,
       countryCode, whatsappNo, bookingStep
     }));
-  }, [quantities, dropoffId, pickupId, dropoffTime, pickupTime, insuranceEnabled, fullName, email, passportNo, specialNotes, countryCode, whatsappNo, bookingStep, hasLoaded]);
+  }, [quantities, dropoffId, pickupId, dropoffTime, pickupTime, insuranceEnabled, fullName, email, passportNo, flightNumber, countryCode, whatsappNo, bookingStep, hasLoaded]);
 
   // ── Derived values ───────────────────────────────────────────
   const dropoffLocation = locations.find((l) => l.id === dropoffId) ?? null;
@@ -206,8 +205,6 @@ function BookingWizard() {
    * The server re-derives this independently; this copy only drives the UI.
    */
   const isAirportBooking = bookingTouchesAirport(dropoffLocation, pickupLocation);
-
-  const airportServiceFee = isAirportBooking ? settings.airport_service_fee_usd : 0;
 
   /** Insurance can be switched off entirely by the operator. */
   const effectiveInsurance = settings.insurance_enabled && insuranceEnabled;
@@ -290,7 +287,6 @@ function BookingWizard() {
       pickupISO:            pickupTime,
       dropoffSurchargeUsd:  dropoffLocation?.dropoff_surcharge_usd ?? 0,
       pickupSurchargeUsd:   pickupLocation?.pickup_surcharge_usd  ?? 0,
-      airportServiceFeeUsd: airportServiceFee,
       insuranceEnabled: effectiveInsurance,
       config: {
         weekThresholdDays: settings.week_threshold_days,
@@ -316,7 +312,7 @@ function BookingWizard() {
       fullName,
       email,
       passportNo,
-      notes: specialNotes,
+      flightNumber,
       dropoffLocation,
       pickupLocation,
       dropoffId,
@@ -351,7 +347,7 @@ function BookingWizard() {
           fullName,
           email,
           passportNo,
-          notes: specialNotes,
+          flightNumber,
           dropoffLocationId: dropoffId,
           pickupLocationId:  pickupId,
           dropoffTime,
@@ -665,8 +661,8 @@ function BookingWizard() {
                         <input
                           type="text"
                           placeholder="e.g. UL 504"
-                          value={specialNotes}
-                          onChange={(e) => setSpecialNotes(e.target.value)}
+                          value={flightNumber}
+                          onChange={(e) => setFlightNumber(e.target.value)}
                           className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-900 focus:border-orange-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-orange-600/20 transition-all"
                         />
                       </div>
@@ -729,7 +725,6 @@ function BookingWizard() {
               pickupTime={pickupTime}
               dropoffLocation={dropoffLocation}
               pickupLocation={pickupLocation}
-              airportServiceFee={airportServiceFee}
               insuranceEnabled={effectiveInsurance}
               config={{
                 weekThresholdDays: settings.week_threshold_days,

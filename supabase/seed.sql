@@ -236,16 +236,16 @@ insert into public.bookings
    duration_unit, duration_value,
    storage_start_date, storage_end_date,
    item_total_usd, dropoff_surcharge_usd, pickup_surcharge_usd,
-   airport_service_usd, insurance_total_usd, grand_total_usd,
-   payment_method, payment_status, booking_status, notes)
+   insurance_total_usd, grand_total_usd,
+   payment_method, payment_status, booking_status, flight_number, notes)
 select
   c.id, l1.id, l2.id,
   'days', 2,
   '2026-07-27'::date, '2026-07-29'::date,
   18.00, 10.00, 0.00,
-  5.00, 4.80, 37.80,
+  4.80, 32.80,
   'stripe_simulated', 'paid', 'confirmed',
-  'Flight UL 504 arrival at 10 AM'
+  'UL 504', null
 from public.customers c, public.locations l1, public.locations l2
 where c.phone = '+94 77 555 1234'
   and l1.code = 'LOC_001'
@@ -256,16 +256,16 @@ insert into public.bookings
    duration_unit, duration_value,
    storage_start_date, storage_end_date,
    item_total_usd, dropoff_surcharge_usd, pickup_surcharge_usd,
-   airport_service_usd, insurance_total_usd, grand_total_usd,
-   payment_method, payment_status, booking_status, notes)
+   insurance_total_usd, grand_total_usd,
+   payment_method, payment_status, booking_status, flight_number, notes)
 select
   c.id, l1.id, l2.id,
   'days', 3,
   '2026-07-26'::date, '2026-07-29'::date,
   36.00, 0.00, 10.00,
-  0.00, 0.00, 46.00,
+  0.00, 46.00,
   'cash', 'pending', 'deposited',
-  'Surfboard & carry-on bag storage'
+  null, 'Surfboard & carry-on bag storage'
 from public.customers c, public.locations l1, public.locations l2
 where c.phone = '+1 415 555 0199'
   and l1.code = 'LOC_002'

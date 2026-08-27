@@ -38,6 +38,7 @@ export interface BookingRecord {
   fullName: string;
   email: string;
   passportNo: string;
+  flightNumber: string | null;
   notes: string | null;
   dropoffLocationId: string;
   pickupLocationId: string;
@@ -54,7 +55,6 @@ export interface BookingRecord {
   dropoffSurchargeUsd: number;
   pickupSurchargeUsd: number;
   insuranceTotalUsd: number;
-  airportServiceUsd: number;
   grandTotalUsd: number;
   paymentMethod: PaymentMethodApi;
   paymentStatus: PaymentStatus;
@@ -62,6 +62,9 @@ export interface BookingRecord {
   qrCodeToken: string;
   allowsCash: boolean;
   isAirportBooking: boolean;
+  /** Set once a staff member marks a cash payment as physically collected. */
+  cashCollectedByName: string | null;
+  cashCollectedAt: string | null;
   createdAt: string;
 }
 
@@ -71,6 +74,7 @@ export interface SaveBookingInput {
   fullName: string;
   email?: string;
   passportNo: string;
+  flightNumber?: string;
   notes?: string;
   dropoffLocation: LocationRow;
   pickupLocation: LocationRow;
@@ -85,7 +89,6 @@ export interface SaveBookingInput {
   dropoffSurchargeUsd: number;
   pickupSurchargeUsd: number;
   insuranceTotalUsd: number;
-  airportServiceUsd: number;
   grandTotalUsd: number;
   requestedPaymentMethod?: PaymentMethodApi;
   idempotencyKey?: string;
@@ -97,7 +100,8 @@ const BOOKING_SELECT = `
   customers!inner(id, phone, full_name, email, passport_number),
   booking_items(tier_id, quantity, unit_rate_usd, line_total_usd, item_tiers(code, name, icon_emoji)),
   dropoff_loc:locations!dropoff_location_id(id, code, name, is_airport, allows_cash, requires_stripe),
-  pickup_loc:locations!pickup_location_id(id, code, name, is_airport, allows_cash, requires_stripe)
+  pickup_loc:locations!pickup_location_id(id, code, name, is_airport, allows_cash, requires_stripe),
+  collector:staff!cash_collected_by(full_name)
 `;
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- PostgREST embedded
@@ -126,6 +130,7 @@ function mapBooking(b: any): BookingRecord {
     fullName: b.customers?.full_name ?? '',
     email: b.customers?.email ?? '',
     passportNo: b.customers?.passport_number ?? '',
+    flightNumber: b.flight_number ?? null,
     notes: b.notes ?? null,
     dropoffLocationId: dropoffLoc?.id ?? b.dropoff_location_id,
     pickupLocationId: pickupLoc?.id ?? b.pickup_location_id,
@@ -142,7 +147,6 @@ function mapBooking(b: any): BookingRecord {
     dropoffSurchargeUsd: Number(b.dropoff_surcharge_usd ?? 0),
     pickupSurchargeUsd: Number(b.pickup_surcharge_usd ?? 0),
     insuranceTotalUsd: Number(b.insurance_total_usd ?? 0),
-    airportServiceUsd: Number(b.airport_service_usd ?? 0),
     grandTotalUsd: Number(b.grand_total_usd ?? 0),
     // An airport booking is card-only no matter what the column says.
     paymentMethod: isAirport ? 'stripe' : toApiMethod(b.payment_method),
@@ -151,6 +155,8 @@ function mapBooking(b: any): BookingRecord {
     qrCodeToken: b.qr_code_token ?? '',
     allowsCash: !isAirport,
     isAirportBooking: isAirport,
+    cashCollectedByName: b.collector?.full_name ?? null,
+    cashCollectedAt: b.cash_collected_at ?? null,
     createdAt: b.created_at,
   };
 }
@@ -247,13 +253,13 @@ export async function saveBooking(input: SaveBookingInput): Promise<BookingRecor
       item_total_usd: input.itemTotalUsd,
       dropoff_surcharge_usd: input.dropoffSurchargeUsd,
       pickup_surcharge_usd: input.pickupSurchargeUsd,
-      airport_service_usd: input.airportServiceUsd,
       insurance_total_usd: input.insuranceTotalUsd,
       insurance_enabled: input.insuranceEnabled,
       grand_total_usd: input.grandTotalUsd,
       payment_method: payment.method,
       payment_status: payment.status,
       booking_status: 'confirmed',
+      flight_number: input.flightNumber || null,
       notes: input.notes || null,
       idempotency_key: input.idempotencyKey || null,
     })
@@ -435,6 +441,7 @@ export async function updateBookingDetails(
   let balanceNowDue = false;
 
   if (patch.notes !== undefined) bookingUpdate.notes = patch.notes || null;
+  if (patch.flightNumber !== undefined) bookingUpdate.flight_number = patch.flightNumber || null;
 
   if (scheduleChanged) {
     const [{ data: locations, error: locErr }, { data: tiers, error: tierErr }, settings] = await Promise.all([
@@ -483,7 +490,6 @@ export async function updateBookingDetails(
       pickupISO: pickupTime,
       dropoffSurchargeUsd: Number(dropoffLocation.dropoff_surcharge_usd ?? 0),
       pickupSurchargeUsd: Number(pickupLocation.pickup_surcharge_usd ?? 0),
-      airportServiceFeeUsd: touchesAirport ? settings.airport_service_fee_usd : 0,
       insuranceEnabled: Number(row.insurance_total_usd ?? 0) > 0,
       config: { weekThresholdDays: settings.week_threshold_days, minBookingDays: settings.min_booking_days },
     });
@@ -509,7 +515,6 @@ export async function updateBookingDetails(
       item_total_usd: breakdown.itemFee,
       dropoff_surcharge_usd: breakdown.dropoffSurcharge,
       pickup_surcharge_usd: breakdown.pickupSurcharge,
-      airport_service_usd: breakdown.airportServiceFee,
       grand_total_usd: breakdown.grandTotal,
       payment_method: payment.method,
       ...(touchesAirport ? { payment_status: 'paid' } : balanceNowDue ? { payment_status: 'pending' } : {}),
@@ -538,6 +543,56 @@ export async function updateBookingDetails(
   const updated = await getBookingById(id);
   if (!updated) throw notFound('Booking not found.');
   return { booking: updated, balanceNowDue };
+}
+
+/**
+ * Staff/SuperAdmin action: mark a cash booking's payment as physically
+ * collected.
+ *
+ * Only meaningful for cash bookings — card ("stripe_simulated") bookings
+ * are marked paid automatically at booking time by the simulated gateway
+ * and never go through this. Records who collected it and when, so a
+ * business owner can reconcile cash handed to staff against what was
+ * actually banked.
+ */
+export async function markCashCollected(id: string, staffUserId: string): Promise<BookingRecord> {
+  const supabase = createAdminClient();
+
+  const { data: current, error: readErr } = await supabase
+    .from('bookings')
+    .select('id, payment_method, payment_status')
+    .eq('id', id)
+    .maybeSingle();
+
+  if (readErr) {
+    console.error('[db.markCashCollected] read failed:', readErr);
+    throw serverError('We could not load that booking. Please try again.');
+  }
+  if (!current) throw notFound('Booking not found.');
+  if (current.payment_method !== 'cash') {
+    throw badRequest('Only cash bookings can be marked as collected — this one is paid by card.');
+  }
+  if (current.payment_status === 'paid') {
+    throw conflict('This booking is already marked paid.');
+  }
+
+  const { error: updateErr } = await supabase
+    .from('bookings')
+    .update({
+      payment_status: 'paid',
+      cash_collected_by: staffUserId,
+      cash_collected_at: new Date().toISOString(),
+    } as never)
+    .eq('id', id);
+
+  if (updateErr) {
+    console.error('[db.markCashCollected] update failed:', updateErr);
+    throw serverError('We could not record the cash collection. Please try again.');
+  }
+
+  const updated = await getBookingById(id);
+  if (!updated) throw notFound('Booking not found.');
+  return updated;
 }
 
 /** Staff action: advance or cancel a booking. */

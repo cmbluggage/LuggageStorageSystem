@@ -60,6 +60,13 @@ export const moneySchema = z
 
 const safeText = (max: number) => z.string().trim().max(max);
 
+/** IATA-style flight designator, e.g. "UL 504", "AI-234". Optional everywhere it appears. */
+export const flightNumberSchema = z
+  .string()
+  .trim()
+  .max(16, 'Flight number is too long.')
+  .regex(/^[A-Za-z0-9\- ]*$/, 'Flight number may only contain letters, numbers, hyphens and spaces.');
+
 // ── Bookings ─────────────────────────────────────────────────────
 
 export const bookingItemSchema = z.object({
@@ -72,6 +79,7 @@ export const createBookingSchema = z.object({
   fullName: safeText(120).min(2, 'Please enter your full name.'),
   email: emailSchema.optional().or(z.literal('')),
   passportNo: passportSchema,
+  flightNumber: flightNumberSchema.optional().or(z.literal('')),
   notes: safeText(1000).optional().or(z.literal('')),
   dropoffLocationId: idSchema,
   pickupLocationId: idSchema,
@@ -106,6 +114,7 @@ export const bookingEditSchema = z
   .object({
     fullName: safeText(120).min(2, 'Please enter a full name.').optional(),
     email: emailSchema.optional().or(z.literal('')),
+    flightNumber: flightNumberSchema.optional().or(z.literal('')),
     notes: safeText(1000).optional().or(z.literal('')),
     dropoffLocationId: idSchema.optional(),
     pickupLocationId: idSchema.optional(),

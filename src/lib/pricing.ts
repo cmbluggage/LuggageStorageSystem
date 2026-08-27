@@ -221,7 +221,6 @@ export interface PricingBreakdown {
   itemFee: number;
   dropoffSurcharge: number;
   pickupSurcharge: number;
-  airportServiceFee: number;
   insuranceFee: number;
   grandTotal: number;
 }
@@ -231,10 +230,15 @@ export interface GrandTotalParams {
   quantities: Record<string, number>;
   dropoffISO: string;
   pickupISO: string;
+  /**
+   * The airport handling cost, if any, belongs entirely to the location's
+   * own surcharge fields — there is deliberately no separate global
+   * "airport fee" stacked on top. An airport location that should cost
+   * more simply has a higher dropoff/pickup surcharge; adding a second fee
+   * here double-charged every airport booking (caught and removed).
+   */
   dropoffSurchargeUsd: number;
   pickupSurchargeUsd: number;
-  /** Applied when either leg touches an airport location; 0 otherwise. */
-  airportServiceFeeUsd: number;
   insuranceEnabled: boolean;
   config?: PricingConfig;
 }
@@ -249,7 +253,6 @@ export function calculateGrandTotal(params: GrandTotalParams): PricingBreakdown 
 
   const dropoffSurcharge = round2(params.dropoffSurchargeUsd || 0);
   const pickupSurcharge = round2(params.pickupSurchargeUsd || 0);
-  const airportServiceFee = round2(params.airportServiceFeeUsd || 0);
 
   return {
     duration,
@@ -257,8 +260,7 @@ export function calculateGrandTotal(params: GrandTotalParams): PricingBreakdown 
     itemFee,
     dropoffSurcharge,
     pickupSurcharge,
-    airportServiceFee,
     insuranceFee,
-    grandTotal: round2(itemFee + dropoffSurcharge + pickupSurcharge + airportServiceFee + insuranceFee),
+    grandTotal: round2(itemFee + dropoffSurcharge + pickupSurcharge + insuranceFee),
   };
 }

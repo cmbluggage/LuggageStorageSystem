@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { formatUSD, formatLKR } from '@/lib/currency';
-import { MapPin, Calendar, Box, Plane, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { MapPin, Calendar, Box, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { calculateGrandTotal, type PricingConfig } from '@/lib/pricing';
 import type { ItemTier } from './ItemSelector';
 import type { Location } from './LocationSelector';
@@ -14,8 +14,6 @@ interface PriceSummaryPanelProps {
   pickupTime: string;
   dropoffLocation: Location | null;
   pickupLocation: Location | null;
-  /** Auto-derived: 0 if no airport location, the configured fee if involved */
-  airportServiceFee: number;
   insuranceEnabled: boolean;
   /**
    * Pricing rules from the admin panel. Omitted only in previews — the
@@ -32,7 +30,6 @@ export function PriceSummaryPanel({
   pickupTime,
   dropoffLocation,
   pickupLocation,
-  airportServiceFee,
   insuranceEnabled,
   config,
 }: PriceSummaryPanelProps) {
@@ -43,7 +40,6 @@ export function PriceSummaryPanel({
     pickupISO:            pickupTime,
     dropoffSurchargeUsd:  dropoffLocation?.dropoff_surcharge_usd ?? 0,
     pickupSurchargeUsd:   pickupLocation?.pickup_surcharge_usd  ?? 0,
-    airportServiceFeeUsd: airportServiceFee,
     insuranceEnabled,
     config,
   });
@@ -122,16 +118,6 @@ export function PriceSummaryPanel({
                 </div>
               );
             })}
-          </div>
-        )}
-
-        {/* Airport Service */}
-        {airportServiceFee > 0 && (
-          <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-            <span className="font-bold text-slate-800 flex items-center gap-1.5">
-              <Plane className="w-3.5 h-3.5 text-orange-600" /> Airport Delivery Service
-            </span>
-            <span className="font-extrabold text-slate-900">+{formatUSD(airportServiceFee)}</span>
           </div>
         )}
 
