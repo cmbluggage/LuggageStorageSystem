@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { formatUSD } from '@/lib/currency';
+import { bookingRef } from '@/lib/format';
 import { bookingsApi, AdminApiError } from '@/lib/admin/api';
 import { notify } from '@/lib/toast';
 import type { BookingRecord } from '@/lib/db';
@@ -214,7 +215,7 @@ export function BookingsPanel() {
                       </span>
                     </span>
                     <span className="block text-xs font-medium text-slate-500 truncate mt-0.5">
-                      {b.phone} · {new Date(b.createdAt).toLocaleDateString('en-GB')}
+                      {bookingRef(b.id)} · {b.phone} · {new Date(b.createdAt).toLocaleDateString('en-GB')}
                     </span>
                   </span>
 
@@ -360,7 +361,7 @@ function BookingDetail({
       </div>
 
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-4">
-        <Row label="Reference" value={b.id} mono />
+        <Row label="Reference" value={bookingRef(b.id)} title={b.id} mono />
         <Row label="Email" value={b.email || '—'} />
         <Row label="Passport / NIC" value={b.passportNo || '—'} mono />
         <Row label="Duration" value={`${b.durationDays} day(s)`} />
@@ -394,7 +395,7 @@ function BookingDetail({
 
       {b.notes && (
         <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200">
-          <p className="text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-0.5">Customer note</p>
+          <p className="text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-0.5">Note (may be a flight #)</p>
           <p className="text-xs font-medium text-amber-950">{b.notes}</p>
         </div>
       )}
@@ -409,11 +410,14 @@ function fmt(iso: string): string {
     : d.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Row({ label, value, mono, title }: { label: string; value: string; mono?: boolean; title?: string }) {
   return (
     <div className="min-w-0">
       <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</dt>
-      <dd className={['font-semibold text-slate-900 break-words', mono ? 'font-mono text-[11px]' : ''].join(' ')}>
+      <dd
+        title={title}
+        className={['font-semibold text-slate-900 break-words', mono ? 'font-mono text-[11px]' : ''].join(' ')}
+      >
         {value}
       </dd>
     </div>

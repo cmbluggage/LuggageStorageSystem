@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/Button';
 import { formatUSD } from '@/lib/currency';
+import { bookingRef } from '@/lib/format';
 import { createClient } from '@/lib/supabase/client';
 import { notify } from '@/lib/toast';
 import { BookingEditForm } from '@/components/admin/BookingEditForm';
@@ -409,6 +410,13 @@ export default function StaffDashboard() {
                       onAdvance={advance}
                       busy={busyTask === task.taskId}
                       nowMs={nowMs}
+                      editing={editingId === task.booking.id}
+                      onEdit={() => setEditingId(task.booking.id)}
+                      onEditSaved={() => {
+                        setEditingId(null);
+                        load();
+                      }}
+                      onEditCancel={() => setEditingId(null)}
                     />
                   ))}
                 </div>
@@ -430,6 +438,10 @@ function TaskRow({
   onAdvance,
   busy,
   nowMs,
+  editing,
+  onEdit,
+  onEditSaved,
+  onEditCancel,
 }: {
   task: OpsTask;
   expanded: boolean;
@@ -438,6 +450,10 @@ function TaskRow({
   busy: boolean;
   /** Reference time captured at fetch, so render stays a pure function. */
   nowMs: number;
+  editing: boolean;
+  onEdit: () => void;
+  onEditSaved: () => void;
+  onEditCancel: () => void;
 }) {
   const { booking } = task;
   const at = new Date(task.at);
@@ -451,6 +467,14 @@ function TaskRow({
 
   const telHref = `tel:${booking.phone.replace(/[^\d+]/g, '')}`;
   const waHref = `https://wa.me/${booking.phone.replace(/\D/g, '')}`;
+
+  if (editing) {
+    return (
+      <article className="bg-white rounded-2xl border border-slate-200 shadow-2xs p-4">
+        <BookingEditForm booking={booking} onCancel={onEditCancel} onSaved={onEditSaved} />
+      </article>
+    );
+  }
 
   return (
     <article
@@ -540,9 +564,17 @@ function TaskRow({
 
       {expanded && (
         <div className="px-4 pb-4 pt-1 border-t border-slate-100 mt-1">
+          <div className="flex justify-end mb-2">
+            <button
+              onClick={onEdit}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
+            >
+              <Pencil className="w-3.5 h-3.5" /> Edit booking
+            </button>
+          </div>
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-xs mb-4">
             <Detail icon={<Phone className="w-3.5 h-3.5" />} label="Phone" value={booking.phone} mono />
-            <Detail icon={<User className="w-3.5 h-3.5" />} label="Reference" value={booking.id} mono />
+            <Detail icon={<User className="w-3.5 h-3.5" />} label="Reference" value={bookingRef(booking.id)} title={booking.id} mono />
             <Detail icon={<FileText className="w-3.5 h-3.5" />} label="Passport / NIC" value={booking.passportNo || '—'} mono />
             <Detail
               icon={<Shield className="w-3.5 h-3.5" />}
@@ -561,7 +593,7 @@ function TaskRow({
 
           {booking.notes && (
             <div className="mb-4 p-3 rounded-xl bg-amber-50 border border-amber-200">
-              <p className="text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-0.5">Customer note</p>
+              <p className="text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-0.5">Note (may be a flight #)</p>
               <p className="text-xs font-medium text-amber-950">{booking.notes}</p>
             </div>
           )}
@@ -669,7 +701,7 @@ function SearchResultRow({
           </div>
 
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-xs mb-4">
-            <Detail icon={<User className="w-3.5 h-3.5" />} label="Reference" value={booking.id} mono />
+            <Detail icon={<User className="w-3.5 h-3.5" />} label="Reference" value={bookingRef(booking.id)} title={booking.id} mono />
             <Detail icon={<FileText className="w-3.5 h-3.5" />} label="Passport / NIC" value={booking.passportNo || '—'} mono />
             <Detail icon={<Box className="w-3.5 h-3.5" />} label="Drop-off" value={`${booking.dropoffLocationName} · ${new Date(booking.dropoffTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`} />
             <Detail icon={<MapPin className="w-3.5 h-3.5" />} label="Pick-up" value={`${booking.pickupLocationName} · ${new Date(booking.pickupTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`} />
@@ -704,14 +736,17 @@ function SearchResultRow({
 // ── Small presentational pieces ─────────────────────────────────────────
 
 function Detail({
-  icon, label, value, mono,
-}: { icon: React.ReactNode; label: string; value: string; mono?: boolean }) {
+  icon, label, value, mono, title,
+}: { icon: React.ReactNode; label: string; value: string; mono?: boolean; title?: string }) {
   return (
     <div className="flex items-start gap-2">
       <span className="text-slate-400 mt-0.5 flex-shrink-0">{icon}</span>
       <div className="min-w-0">
         <dt className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</dt>
-        <dd className={['font-semibold text-slate-900 break-words', mono ? 'font-mono text-[11px]' : ''].join(' ')}>
+        <dd
+          title={title}
+          className={['font-semibold text-slate-900 break-words', mono ? 'font-mono text-[11px]' : ''].join(' ')}
+        >
           {value}
         </dd>
       </div>

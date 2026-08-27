@@ -26,7 +26,8 @@ const CATEGORY_ORDER = ['insurance', 'pricing', 'limits', 'currency', 'operation
 const CATEGORY_COPY: Record<string, { title: string; description: string }> = {
   insurance: {
     title: 'Insurance',
-    description: 'Turning insurance off hides it from the booking flow and stops it being billed.',
+    description:
+      'Turning insurance off hides it from the booking flow and stops it being billed. The $ amount is set per item type under Item Tiers → Insurance fee, not here.',
   },
   pricing: {
     title: 'Pricing Rules',

@@ -26,15 +26,21 @@ import {
  * API, and every business value is editable under Settings.
  */
 
-type AdminTab = 'settings' | 'item-tiers' | 'locations' | 'addons' | 'time-slots' | 'bookings' | 'audit-log';
+type AdminTab = 'bookings' | 'item-tiers' | 'addons' | 'locations' | 'time-slots' | 'settings' | 'audit-log';
 
+/**
+ * Grouped the way a business owner actually thinks about the operation,
+ * not by which table a tab happens to write to. Bookings is what you check
+ * first each day, so it leads; the old flat "Configure" bucket lumped
+ * pricing, locations and global rules together with no distinction.
+ */
 const TABS: { id: AdminTab; label: string; icon: React.ReactNode; group: string }[] = [
-  { id: 'settings',   label: 'Business Settings', icon: <SlidersHorizontal className="w-4 h-4" />, group: 'Configure' },
-  { id: 'item-tiers', label: 'Item Tiers',        icon: <Luggage className="w-4 h-4" />,          group: 'Configure' },
-  { id: 'locations',  label: 'Locations',         icon: <MapPin className="w-4 h-4" />,           group: 'Configure' },
-  { id: 'addons',     label: 'Add-on Services',   icon: <Plane className="w-4 h-4" />,            group: 'Configure' },
-  { id: 'time-slots', label: 'Operating Hours',   icon: <Clock className="w-4 h-4" />,            group: 'Configure' },
-  { id: 'bookings',   label: 'Bookings',          icon: <ClipboardList className="w-4 h-4" />,    group: 'Records' },
+  { id: 'bookings',   label: 'Bookings',          icon: <ClipboardList className="w-4 h-4" />,    group: 'Day to day' },
+  { id: 'item-tiers', label: 'Item Tiers',        icon: <Luggage className="w-4 h-4" />,          group: 'Pricing & Catalog' },
+  { id: 'addons',     label: 'Add-on Services',   icon: <Plane className="w-4 h-4" />,            group: 'Pricing & Catalog' },
+  { id: 'locations',  label: 'Locations',         icon: <MapPin className="w-4 h-4" />,           group: 'Locations & Schedule' },
+  { id: 'time-slots', label: 'Operating Hours',   icon: <Clock className="w-4 h-4" />,            group: 'Locations & Schedule' },
+  { id: 'settings',   label: 'Business Settings', icon: <SlidersHorizontal className="w-4 h-4" />, group: 'Business Rules' },
   { id: 'audit-log',  label: 'Audit Log',         icon: <ScrollText className="w-4 h-4" />,       group: 'Records' },
 ];
 
@@ -84,7 +90,7 @@ const ADDON_FIELDS: FieldDef<AddonRow>[] = [
 ];
 
 export default function AdminPanel() {
-  const [tab, setTab] = useState<AdminTab>('settings');
+  const [tab, setTab] = useState<AdminTab>('bookings');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [navOpen, setNavOpen] = useState(false);
 
