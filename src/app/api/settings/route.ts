@@ -2,6 +2,7 @@ import { getSettings, invalidateSettingsCache, toPublicSettings, DEFAULT_SETTING
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireSuperAdmin } from '@/lib/auth/guard';
 import { writeAudit } from '@/lib/audit';
+import { isStripeConfigured } from '@/lib/stripe';
 import { parseBody, settingsUpdateSchema } from '@/lib/validation/schemas';
 import { badRequest, fail, ok, serverError, NO_STORE } from '@/lib/api/http';
 
@@ -20,6 +21,10 @@ export async function GET() {
         turnstileSiteKey: settings.turnstile_enabled
           ? (process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? null)
           : null,
+        // Whether a live Stripe key is configured — never the key itself.
+        // Lets the checkout page choose between the real redirect flow and
+        // the no-gateway-configured dev fallback.
+        stripeEnabled: isStripeConfigured(),
       },
       NO_STORE,
     );

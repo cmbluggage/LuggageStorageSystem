@@ -5,6 +5,7 @@ import { bookingTouchesAirport } from '@/lib/locations';
 import { getSettings } from '@/lib/settings';
 import { rateLimit } from '@/lib/security/rateLimit';
 import { verifyTurnstile } from '@/lib/security/turnstile';
+import { sendBookingConfirmedEmail } from '@/lib/email';
 import {
   parseBody,
   parseQuery,
@@ -176,6 +177,9 @@ export async function POST(req: Request) {
       requestedPaymentMethod: touchesAirport ? 'stripe' : 'cash',
       idempotencyKey: input.idempotencyKey,
     });
+
+    // Best-effort — a failed send must never fail the booking itself.
+    sendBookingConfirmedEmail(record).catch((e) => console.error('[bookings.POST] confirmation email failed:', e));
 
     return ok({ bookingId: record.id, booking: record, breakdown }, NO_STORE);
   } catch (err) {

@@ -1,6 +1,7 @@
 import { getBookingById, markCashCollected } from '@/lib/db';
 import { requireStaff } from '@/lib/auth/guard';
 import { writeAudit } from '@/lib/audit';
+import { sendPaymentReceivedEmail } from '@/lib/email';
 import { badRequest, fail, notFound, ok, tooManyRequests, clientIp, NO_STORE } from '@/lib/api/http';
 import { rateLimit } from '@/lib/security/rateLimit';
 import { idSchema } from '@/lib/validation/schemas';
@@ -31,17 +32,20 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const current = await getBookingById(id);
     if (!current) throw notFound('Booking not found.');
 
+    const collectedUsd = current.balanceDueUsd;
     const updated = await markCashCollected(id, actor.userId);
 
     await writeAudit({
       tableName: 'bookings',
       recordId: id,
       action: 'UPDATE',
-      summary: `Cash collected by ${actor.email} (${current.grandTotalUsd.toFixed(2)} USD)`,
+      summary: `Cash collected by ${actor.email} (${collectedUsd.toFixed(2)} USD)`,
       actor,
-      oldValues: { paymentStatus: current.paymentStatus },
-      newValues: { paymentStatus: updated.paymentStatus, cashCollectedByName: updated.cashCollectedByName },
+      oldValues: { paymentStatus: current.paymentStatus, balanceDueUsd: current.balanceDueUsd },
+      newValues: { paymentStatus: updated.paymentStatus, balanceDueUsd: updated.balanceDueUsd, cashCollectedByName: updated.cashCollectedByName },
     });
+
+    sendPaymentReceivedEmail(updated).catch((e) => console.error('[staff.bookings.collectCash.PATCH] email failed:', e));
 
     return ok({ booking: updated }, NO_STORE);
   } catch (err) {

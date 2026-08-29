@@ -10,7 +10,6 @@ import { notify } from '@/lib/toast';
 import {
   CreditCard,
   Banknote,
-  CheckCircle2,
   Box,
   Calendar,
   MapPin,
@@ -136,9 +135,7 @@ export default function CheckoutPage() {
   // Payment form state. `paymentMethod` below is the *effective* method:
   // when cash is not offered this preference is ignored entirely.
   const [paymentPreference, setPaymentPreference] = useState<'stripe' | 'cash'>('stripe');
-  const [cardNumber, setCardNumber] = useState('');
-  const [expiry, setExpiry] = useState('');
-  const [cvv, setCvv] = useState('');
+  const [stripeEnabled, setStripeEnabled] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -153,6 +150,11 @@ export default function CheckoutPage() {
       .then(r => r.json())
       .then(d => setItemTiers(d.itemTiers || []))
       .catch(console.error);
+
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(d => setStripeEnabled(Boolean(d.stripeEnabled)))
+      .catch(() => setStripeEnabled(false));
 
     if (bookingId && !bookingId.startsWith('bk-')) {
       fetch(`/api/bookings/${bookingId}`)
@@ -293,38 +295,44 @@ export default function CheckoutPage() {
 
   const handleConfirm = async () => {
     setError('');
-    if (paymentMethod === 'stripe') {
-      const cleanCard = cardNumber.replace(/\D/g, '');
-      if (cleanCard.length < 12) {
-        const msg = 'Please enter a valid 16-digit card number.';
-        setError(msg);
-        notify.error(msg);
+    setLoading(true);
+    const effectiveBookingId = sessionData?.bookingId || bookingId;
+
+    // Real Stripe: hand off to the hosted Checkout page. Nothing is marked
+    // paid here — the webhook does that once Stripe confirms the charge.
+    if (paymentMethod === 'stripe' && stripeEnabled) {
+      try {
+        const res = await fetch(`/api/bookings/${effectiveBookingId}/checkout`, { method: 'POST' });
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.url) {
+          const msg = data?.error ?? 'We could not start your payment. Please try again.';
+          setError(msg);
+          notify.error(msg);
+          setLoading(false);
+          return;
+        }
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('stowaway_checkout_session');
+          sessionStorage.removeItem('stowaway_booking_state');
+          window.location.href = data.url;
+        }
         return;
-      }
-      if (!expiry || expiry.length < 4) {
-        const msg = 'Please enter a valid card expiry date (MM/YY).';
+      } catch {
+        const msg = 'We could not reach our servers. Check your connection and try again.';
         setError(msg);
         notify.error(msg);
-        return;
-      }
-      if (!cvv || cvv.length < 3) {
-        const msg = 'Please enter a valid CVV security code.';
-        setError(msg);
-        notify.error(msg);
+        setLoading(false);
         return;
       }
     }
 
-    setLoading(true);
-    const effectiveBookingId = sessionData?.bookingId || bookingId;
-
     /*
-      Record the payment before showing a confirmation.
-
-      The previous version swallowed every failure (`.catch(() => {})`) and
-      navigated to the confirmation page regardless, so a customer could be
-      shown a QR pass for a booking the server had never marked as paid.
-      A failed payment now keeps them on this page with the reason.
+      Cash, or card with no live Stripe key configured yet (dev/demo
+      fallback — settles instantly via the ledger, same as before Stripe
+      was wired in). Record the payment before showing a confirmation: the
+      previous version swallowed every failure and navigated to the
+      confirmation page regardless, so a customer could be shown a QR pass
+      for a booking the server had never marked as paid.
     */
     try {
       const res = await fetch(`/api/bookings/${effectiveBookingId}`, {
@@ -477,73 +485,24 @@ export default function CheckoutPage() {
               </div>
             </div>
 
-            {/* Card details simulation */}
+            {/* Card payment — real Stripe redirect, or the dev fallback when no live key is configured */}
             {paymentMethod === 'stripe' && (
               <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-2xs animate-fade-in">
-                <h2 className="text-xl font-bold text-slate-900 mb-6">Payment Card Details</h2>
-                <div className="flex items-center gap-3 mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 flex-shrink-0" />
-                  <p className="text-xs font-semibold text-emerald-900">
-                    <strong>Demo Simulation</strong> — You can use any test card number (e.g. 4242...).
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-4">
-                  <div>
-                    <label htmlFor="card-number" className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                      Card Number
-                    </label>
-                    <input
-                      id="card-number"
-                      type="text"
-                      inputMode="numeric"
-                      maxLength={19}
-                      value={cardNumber}
-                      onChange={e => {
-                        setCardNumber(e.target.value.replace(/\D/g, '').replace(/(\d{4})/g, '$1 ').trim());
-                        setError('');
-                      }}
-                      placeholder="4242 4242 4242 4242"
-                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-600 focus:bg-white focus:ring-2 focus:ring-orange-600/20 transition-all"
-                    />
+                {stripeEnabled ? (
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-slate-50 border border-slate-200">
+                    <ShieldCheck className="w-5 h-5 text-orange-600 flex-shrink-0" />
+                    <p className="text-xs font-semibold text-slate-700">
+                      You&rsquo;ll be redirected to Stripe&rsquo;s secure checkout to complete payment.
+                    </p>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label htmlFor="card-expiry" className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                        Expiry
-                      </label>
-                      <input
-                        id="card-expiry"
-                        type="text"
-                        maxLength={5}
-                        value={expiry}
-                        onChange={e => {
-                          setExpiry(e.target.value);
-                          setError('');
-                        }}
-                        placeholder="MM/YY"
-                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-600 focus:bg-white focus:ring-2 focus:ring-orange-600/20 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="card-cvv" className="block text-xs font-bold text-slate-700 mb-1.5 uppercase tracking-wider">
-                        CVV / CVC
-                      </label>
-                      <input
-                        id="card-cvv"
-                        type="text"
-                        maxLength={4}
-                        value={cvv}
-                        onChange={e => {
-                          setCvv(e.target.value);
-                          setError('');
-                        }}
-                        placeholder="123"
-                        className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-600 focus:bg-white focus:ring-2 focus:ring-orange-600/20 transition-all"
-                      />
-                    </div>
+                ) : (
+                  <div className="flex items-center gap-3 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                    <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                    <p className="text-xs font-semibold text-amber-900">
+                      <strong>Demo mode</strong> — card payments aren&rsquo;t live yet. Confirming will mark this booking paid without a real charge.
+                    </p>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -564,9 +523,11 @@ export default function CheckoutPage() {
               className="py-4 text-base font-black shadow-sm cursor-pointer"
             >
               {loading
-                ? 'Processing Reservation...'
+                ? 'Processing...'
                 : paymentMethod === 'cash'
                 ? `Confirm Reservation — Pay ${formatUSD(grandTotal)} Cash at Drop-off`
+                : stripeEnabled
+                ? `Continue to secure payment — ${formatUSD(grandTotal)}`
                 : `Confirm & Pay — ${formatUSD(grandTotal)}`}
             </Button>
 

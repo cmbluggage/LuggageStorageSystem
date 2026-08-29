@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Banknote, CheckCircle2 } from 'lucide-react';
 import { bookingsApi, AdminApiError } from '@/lib/admin/api';
+import { formatUSD } from '@/lib/currency';
 import { notify } from '@/lib/toast';
 import type { BookingRecord } from '@/lib/db';
 
@@ -23,7 +24,7 @@ export function CashCollectButton({
 
   if (booking.paymentMethod !== 'cash') return null;
 
-  if (booking.paymentStatus === 'paid') {
+  if (booking.balanceDueUsd <= 0) {
     return (
       <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-emerald-700">
         <CheckCircle2 className="w-3.5 h-3.5" />
@@ -40,7 +41,7 @@ export function CashCollectButton({
     setBusy(true);
     try {
       const { booking: updated } = await bookingsApi.collectCash(booking.id);
-      notify.success(`Cash collected — ${booking.fullName || 'booking'} marked paid.`);
+      notify.success(`${formatUSD(booking.balanceDueUsd)} collected — ${booking.fullName || 'booking'} marked paid.`);
       onCollected(updated);
     } catch (e) {
       notify.error(e instanceof AdminApiError ? e.message : 'Could not record the cash collection.');
@@ -57,7 +58,7 @@ export function CashCollectButton({
                  bg-amber-100 text-amber-800 hover:bg-amber-200 transition-colors cursor-pointer
                  disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      <Banknote className="w-3.5 h-3.5" /> {busy ? 'Marking…' : 'Mark cash collected'}
+      <Banknote className="w-3.5 h-3.5" /> {busy ? 'Marking…' : `Mark ${formatUSD(booking.balanceDueUsd)} collected`}
     </button>
   );
 }

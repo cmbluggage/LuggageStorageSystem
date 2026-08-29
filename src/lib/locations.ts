@@ -60,7 +60,7 @@ export function cashAllowed(
 
 export type PaymentMethodDb = 'cash' | 'stripe_simulated';
 export type PaymentMethodApi = 'cash' | 'stripe';
-export type PaymentStatus = 'pending' | 'paid' | 'failed';
+export type PaymentStatus = 'pending' | 'partially_paid' | 'paid' | 'failed';
 
 /**
  * Resolve the payment method/status the server will actually store,

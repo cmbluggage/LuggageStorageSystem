@@ -4,6 +4,7 @@ import { bookingTouchesAirport, isAirportLocation, resolvePayment, toApiMethod }
 import type { PaymentMethodApi, PaymentStatus } from '@/lib/locations';
 import { calculateGrandTotal, round2, type LineItem, type TierPricing } from '@/lib/pricing';
 import { getSettings } from '@/lib/settings';
+import { isStripeConfigured } from '@/lib/stripe';
 import type { LocationRow } from '@/lib/supabase/types';
 import type { BookingEditInput } from '@/lib/validation/schemas';
 
@@ -57,7 +58,17 @@ export interface BookingRecord {
   insuranceTotalUsd: number;
   grandTotalUsd: number;
   paymentMethod: PaymentMethodApi;
+  /**
+   * Derived from the `payments` ledger (grandTotalUsd vs. the sum of
+   * succeeded payments), not read directly off the stored column — the
+   * column is a cache kept in sync for filtering, the ledger is the
+   * authority. See `amountPaidUsd`/`balanceDueUsd`.
+   */
   paymentStatus: PaymentStatus;
+  /** Sum of succeeded payments (cash collections + settled Stripe charges). */
+  amountPaidUsd: number;
+  /** grandTotalUsd - amountPaidUsd, floored at 0. What's left to collect. */
+  balanceDueUsd: number;
   status: 'confirmed' | 'in_transit' | 'deposited' | 'picked_up' | 'cancelled';
   qrCodeToken: string;
   allowsCash: boolean;
@@ -101,17 +112,34 @@ const BOOKING_SELECT = `
   booking_items(tier_id, quantity, unit_rate_usd, line_total_usd, item_tiers(code, name, icon_emoji)),
   dropoff_loc:locations!dropoff_location_id(id, code, name, is_airport, allows_cash, requires_stripe),
   pickup_loc:locations!pickup_location_id(id, code, name, is_airport, allows_cash, requires_stripe),
-  collector:staff!cash_collected_by(full_name)
+  collector:staff!cash_collected_by(full_name),
+  payments(amount_usd, method, status, created_at)
 `;
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- PostgREST embedded
    selects are not expressible in the hand-maintained Database type; the
    shape is normalised immediately below in mapBooking. */
 
+/** Ledger-derived status — the authority, never the raw stored column. */
+function derivePaymentStatus(grandTotalUsd: number, amountPaidUsd: number): PaymentStatus {
+  if (round2(grandTotalUsd) <= 0) return 'paid';
+  if (amountPaidUsd <= 0) return 'pending';
+  if (round2(amountPaidUsd) >= round2(grandTotalUsd)) return 'paid';
+  return 'partially_paid';
+}
+
 function mapBooking(b: any): BookingRecord {
   const dropoffLoc = b.dropoff_loc ?? null;
   const pickupLoc = b.pickup_loc ?? null;
   const isAirport = bookingTouchesAirport(dropoffLoc, pickupLoc);
+
+  const grandTotalUsd = Number(b.grand_total_usd ?? 0);
+  const amountPaidUsd = round2(
+    (b.payments ?? [])
+      .filter((p: any) => p.status === 'succeeded')
+      .reduce((sum: number, p: any) => sum + Number(p.amount_usd ?? 0), 0),
+  );
+  const balanceDueUsd = Math.max(0, round2(grandTotalUsd - amountPaidUsd));
 
   const items: BookingItemDetail[] = (b.booking_items ?? []).map((bi: any) => ({
     tierId: bi.tier_id,
@@ -147,10 +175,12 @@ function mapBooking(b: any): BookingRecord {
     dropoffSurchargeUsd: Number(b.dropoff_surcharge_usd ?? 0),
     pickupSurchargeUsd: Number(b.pickup_surcharge_usd ?? 0),
     insuranceTotalUsd: Number(b.insurance_total_usd ?? 0),
-    grandTotalUsd: Number(b.grand_total_usd ?? 0),
+    grandTotalUsd,
     // An airport booking is card-only no matter what the column says.
     paymentMethod: isAirport ? 'stripe' : toApiMethod(b.payment_method),
-    paymentStatus: (b.payment_status as PaymentStatus) ?? 'pending',
+    paymentStatus: derivePaymentStatus(grandTotalUsd, amountPaidUsd),
+    amountPaidUsd,
+    balanceDueUsd,
     status: b.booking_status ?? 'confirmed',
     qrCodeToken: b.qr_code_token ?? '',
     allowsCash: !isAirport,
@@ -257,7 +287,11 @@ export async function saveBooking(input: SaveBookingInput): Promise<BookingRecor
       insurance_enabled: input.insuranceEnabled,
       grand_total_usd: input.grandTotalUsd,
       payment_method: payment.method,
-      payment_status: payment.status,
+      // Never 'paid' at insert time — recording an actual payment (cash
+      // collection, a settled Stripe charge, or the no-Stripe-configured
+      // dev fallback) is what moves this, via recordPayment() below. The
+      // ledger is the authority; this column is just the initial cache.
+      payment_status: 'pending',
       booking_status: 'confirmed',
       flight_number: input.flightNumber || null,
       notes: input.notes || null,
@@ -339,15 +373,167 @@ export async function getBookingsByPhone(phone: string): Promise<BookingRecord[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Payments ledger
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface RecordPaymentInput {
+  bookingId: string;
+  amountUsd: number;
+  method: 'cash' | 'stripe';
+  status?: 'pending' | 'succeeded' | 'failed' | 'refunded';
+  stripeSessionId?: string;
+  stripePaymentIntentId?: string;
+  /** staff.user_id — cash collections only. */
+  collectedBy?: string;
+}
+
+/**
+ * Insert a payment ledger row and, when it settles, refresh the booking's
+ * cached `payment_status` from the ledger.
+ *
+ * This is the only function that ever writes to `payments` — cash
+ * collection, a settled Stripe webhook, and the no-Stripe-configured dev
+ * fallback all go through here, so the ledger and the cached status column
+ * can never drift apart between the different payment paths.
+ */
+export async function recordPayment(input: RecordPaymentInput): Promise<BookingRecord> {
+  const supabase = createAdminClient();
+  const status = input.status ?? 'succeeded';
+
+  const { error: insertErr } = await supabase.from('payments').insert({
+    booking_id: input.bookingId,
+    amount_usd: input.amountUsd,
+    method: input.method,
+    status,
+    stripe_session_id: input.stripeSessionId ?? null,
+    stripe_payment_intent_id: input.stripePaymentIntentId ?? null,
+    collected_by: input.collectedBy ?? null,
+  } as never);
+
+  if (insertErr) {
+    // A stripe_session_id unique violation means a webhook retry landed
+    // here — the first insert already recorded it, so this is not an error.
+    if (insertErr.code === '23505' && input.stripeSessionId) {
+      const existing = await getBookingById(input.bookingId);
+      if (existing) return existing;
+    }
+    console.error('[db.recordPayment] insert failed:', insertErr);
+    throw serverError('We could not record that payment. Please try again.');
+  }
+
+  let updated = await getBookingById(input.bookingId);
+  if (!updated) throw notFound('Booking not found.');
+
+  if (status === 'succeeded') {
+    const bookingUpdate: Record<string, unknown> = { payment_status: updated.paymentStatus };
+    if (input.method === 'cash') {
+      bookingUpdate.cash_collected_by = input.collectedBy ?? null;
+      bookingUpdate.cash_collected_at = new Date().toISOString();
+    }
+    const { error: updateErr } = await supabase.from('bookings').update(bookingUpdate as never).eq('id', input.bookingId);
+    if (updateErr) console.error('[db.recordPayment] cache sync failed:', updateErr);
+
+    // Re-fetch so the returned record picks up cash_collected_by's embed.
+    if (input.method === 'cash') {
+      const refreshed = await getBookingById(input.bookingId);
+      if (refreshed) updated = refreshed;
+    }
+  }
+
+  return updated;
+}
+
+/** Create the pending ledger row for a Stripe Checkout Session before redirecting. */
+export async function createPendingStripePayment(
+  bookingId: string,
+  amountUsd: number,
+  stripeSessionId: string,
+): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase.from('payments').insert({
+    booking_id: bookingId,
+    amount_usd: amountUsd,
+    method: 'stripe',
+    status: 'pending',
+    stripe_session_id: stripeSessionId,
+  } as never);
+
+  if (error) {
+    console.error('[db.createPendingStripePayment] failed:', error);
+    throw serverError('We could not start that payment. Please try again.');
+  }
+}
+
+/**
+ * Called from the Stripe webhook when a Checkout Session completes.
+ * Idempotent: a replayed webhook for an already-succeeded session is a
+ * no-op, not an error. Returns null for a session id this app never
+ * created (the webhook handler 200s regardless — nothing to retry).
+ */
+export async function markStripePaymentSucceeded(
+  stripeSessionId: string,
+  stripePaymentIntentId?: string,
+): Promise<BookingRecord | null> {
+  const supabase = createAdminClient();
+
+  const { data: existing, error: readErr } = await supabase
+    .from('payments')
+    .select('id, booking_id, status')
+    .eq('stripe_session_id', stripeSessionId)
+    .maybeSingle();
+
+  if (readErr) {
+    console.error('[db.markStripePaymentSucceeded] read failed:', readErr);
+    throw serverError('We could not confirm that payment.');
+  }
+  if (!existing) return null;
+  if (existing.status === 'succeeded') return getBookingById(existing.booking_id);
+
+  const { error: updateErr } = await supabase
+    .from('payments')
+    .update({ status: 'succeeded', stripe_payment_intent_id: stripePaymentIntentId ?? null } as never)
+    .eq('id', existing.id);
+  if (updateErr) {
+    console.error('[db.markStripePaymentSucceeded] update failed:', updateErr);
+    throw serverError('We could not confirm that payment.');
+  }
+
+  const updated = await getBookingById(existing.booking_id);
+  if (updated) {
+    await supabase.from('bookings').update({ payment_status: updated.paymentStatus } as never).eq('id', existing.booking_id);
+  }
+  return updated;
+}
+
+/** Called from the webhook when a Checkout Session expires or its payment fails. */
+export async function markStripePaymentFailed(stripeSessionId: string): Promise<void> {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from('payments')
+    .update({ status: 'failed' } as never)
+    .eq('stripe_session_id', stripeSessionId)
+    .eq('status', 'pending');
+  if (error) console.error('[db.markStripePaymentFailed] failed:', stripeSessionId, error);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Update
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Set the payment method/status on an existing booking.
+ * Set the payment method on an existing booking, used by the customer-
+ * facing checkout step.
  *
  * The airport lockout is re-derived from the booking's own location rows,
  * never from the caller's payload — a client asking to pay cash for an
  * airport booking is silently corrected to card, not trusted.
+ *
+ * Card payments are only ever settled *here* — instantly, no real charge —
+ * when there is no live Stripe key configured (local dev / a demo). Once
+ * Stripe is configured, every card payment is settled exclusively through
+ * `POST /api/bookings/[id]/checkout` + the webhook, never by this PATCH;
+ * calling it with `stripe` at that point is a client bug, not a payment
+ * method to silently fall back on.
  */
 export async function updateBookingPayment(
   id: string,
@@ -359,7 +545,7 @@ export async function updateBookingPayment(
   const { data: current, error: readErr } = await supabase
     .from('bookings')
     .select(
-      `id, payment_status,
+      `id, payment_status, grand_total_usd,
        dropoff_loc:locations!dropoff_location_id(is_airport, code, requires_stripe, allows_cash),
        pickup_loc:locations!pickup_location_id(is_airport, code, requires_stripe, allows_cash)`,
     )
@@ -380,14 +566,21 @@ export async function updateBookingPayment(
   const touchesAirport = bookingTouchesAirport(row.dropoff_loc, row.pickup_loc);
   const payment = resolvePayment(requestedMethod, requestedStatus, touchesAirport);
 
+  if (payment.method === 'stripe_simulated') {
+    if (isStripeConfigured()) {
+      throw badRequest('Card payments are handled by the secure checkout flow. Use /api/bookings/[id]/checkout.');
+    }
+    return recordPayment({ bookingId: id, amountUsd: Number(row.grand_total_usd ?? 0), method: 'stripe' });
+  }
+
   const { error: updateErr } = await supabase
     .from('bookings')
-    .update({ payment_method: payment.method, payment_status: payment.status })
+    .update({ payment_method: payment.method } as never)
     .eq('id', id);
 
   if (updateErr) {
     console.error('[db.updateBookingPayment] update failed:', updateErr);
-    throw serverError('We could not record your payment. Please try again.');
+    throw serverError('We could not record your payment preference. Please try again.');
   }
 
   const updated = await getBookingById(id);
@@ -399,14 +592,14 @@ export async function updateBookingPayment(
  * Staff/SuperAdmin action: edit a booking's customer details, notes, or
  * schedule (location + time).
  *
- * There is no live payment gateway here — payment_method is just a
- * cash/card flag and staff always collect money in person. So an edit is
- * never blocked by payment_status. Instead, if a location/time change
- * recalculates a HIGHER grand total than what is on file, payment_status
- * is reset to 'pending' so staff see a balance is owed; an equal or lower
- * total leaves 'paid' alone. This intentionally has no partial-payment
- * ledger — "pending" on an edited booking means "collect the recalculated
- * total," matching how the business actually operates.
+ * An edit is never blocked by payment status — if a location/time change
+ * recalculates a different grand total, `payment_status` is simply
+ * re-derived from the payments ledger against the new total (paid /
+ * partially_paid / pending). Extending a stay that was already paid in
+ * full naturally becomes `partially_paid`, and the amount still owed is
+ * `balanceDueUsd` on the returned record — staff collect exactly that via
+ * `markCashCollected` or a fresh Stripe Checkout Session, never the whole
+ * new total from scratch.
  */
 export async function updateBookingDetails(
   id: string,
@@ -495,13 +688,8 @@ export async function updateBookingDetails(
     });
     if (!breakdown.duration.valid) throw badRequest('Invalid drop-off/pick-up time range.');
 
-    // Airport bookings are always card + settled immediately (the "simulated
-    // gateway settles instantly" rule from resolvePayment/saveBooking) — that
-    // invariant holds regardless of the balance-due logic below, exactly
-    // like booking creation and updateBookingPayment.
+    // Airport locations are always card-only, whatever was on file before.
     const payment = resolvePayment(undefined, undefined, touchesAirport);
-    const previousTotal = round2(Number(row.grand_total_usd ?? 0));
-    balanceNowDue = !touchesAirport && breakdown.grandTotal > previousTotal;
 
     Object.assign(bookingUpdate, {
       dropoff_location_id: dropoffLocation.id,
@@ -517,7 +705,6 @@ export async function updateBookingDetails(
       pickup_surcharge_usd: breakdown.pickupSurcharge,
       grand_total_usd: breakdown.grandTotal,
       payment_method: payment.method,
-      ...(touchesAirport ? { payment_status: 'paid' } : balanceNowDue ? { payment_status: 'pending' } : {}),
     });
   }
 
@@ -542,57 +729,45 @@ export async function updateBookingDetails(
 
   const updated = await getBookingById(id);
   if (!updated) throw notFound('Booking not found.');
+
+  if (scheduleChanged) {
+    balanceNowDue = updated.balanceDueUsd > 0;
+    const { error: syncErr } = await supabase
+      .from('bookings')
+      .update({ payment_status: updated.paymentStatus } as never)
+      .eq('id', id);
+    if (syncErr) console.error('[db.updateBookingDetails] payment_status sync failed:', syncErr);
+  }
+
   return { booking: updated, balanceNowDue };
 }
 
 /**
- * Staff/SuperAdmin action: mark a cash booking's payment as physically
- * collected.
+ * Staff/SuperAdmin action: mark a cash booking's outstanding balance as
+ * physically collected.
  *
- * Only meaningful for cash bookings — card ("stripe_simulated") bookings
- * are marked paid automatically at booking time by the simulated gateway
- * and never go through this. Records who collected it and when, so a
- * business owner can reconcile cash handed to staff against what was
- * actually banked.
+ * Always collects `balanceDueUsd` — the current ledger-derived amount
+ * still owed, not a fixed "the whole total" — so this works identically
+ * whether it's the first payment or the top-up after a stay extension.
+ * Only meaningful for cash bookings; card payments settle exclusively
+ * through Stripe (or the dev fallback in `updateBookingPayment`).
  */
 export async function markCashCollected(id: string, staffUserId: string): Promise<BookingRecord> {
-  const supabase = createAdminClient();
-
-  const { data: current, error: readErr } = await supabase
-    .from('bookings')
-    .select('id, payment_method, payment_status')
-    .eq('id', id)
-    .maybeSingle();
-
-  if (readErr) {
-    console.error('[db.markCashCollected] read failed:', readErr);
-    throw serverError('We could not load that booking. Please try again.');
-  }
+  const current = await getBookingById(id);
   if (!current) throw notFound('Booking not found.');
-  if (current.payment_method !== 'cash') {
+  if (current.paymentMethod !== 'cash') {
     throw badRequest('Only cash bookings can be marked as collected — this one is paid by card.');
   }
-  if (current.payment_status === 'paid') {
-    throw conflict('This booking is already marked paid.');
+  if (current.balanceDueUsd <= 0) {
+    throw conflict('This booking is already fully paid.');
   }
 
-  const { error: updateErr } = await supabase
-    .from('bookings')
-    .update({
-      payment_status: 'paid',
-      cash_collected_by: staffUserId,
-      cash_collected_at: new Date().toISOString(),
-    } as never)
-    .eq('id', id);
-
-  if (updateErr) {
-    console.error('[db.markCashCollected] update failed:', updateErr);
-    throw serverError('We could not record the cash collection. Please try again.');
-  }
-
-  const updated = await getBookingById(id);
-  if (!updated) throw notFound('Booking not found.');
-  return updated;
+  return recordPayment({
+    bookingId: id,
+    amountUsd: current.balanceDueUsd,
+    method: 'cash',
+    collectedBy: staffUserId,
+  });
 }
 
 /** Staff action: advance or cancel a booking. */
@@ -770,6 +945,131 @@ export async function searchAllBookings(term: string, limit = 50): Promise<Booki
         b.id.toLowerCase().includes(needle),
     )
     .slice(0, limit);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Admin: payments ledger view
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface PaymentEntry {
+  id: string;
+  bookingId: string;
+  bookingRef: string;
+  customerName: string;
+  amountUsd: number;
+  method: 'cash' | 'stripe';
+  status: 'pending' | 'succeeded' | 'failed' | 'refunded';
+  collectedByName: string | null;
+  createdAt: string;
+}
+
+export interface PaymentFilters {
+  method?: 'cash' | 'stripe';
+  status?: 'pending' | 'succeeded' | 'failed' | 'refunded';
+  limit?: number;
+  offset?: number;
+}
+
+/** Paginated payments ledger for the admin panel's financial view. */
+export async function listPayments(
+  filters: PaymentFilters = {},
+): Promise<{ payments: PaymentEntry[]; total: number }> {
+  const supabase = createAdminClient();
+  const limit = Math.min(filters.limit ?? 50, 200);
+  const offset = filters.offset ?? 0;
+
+  let query = supabase
+    .from('payments')
+    .select(
+      `id, booking_id, amount_usd, method, status, created_at,
+       booking:bookings!booking_id(id, customers(full_name)),
+       collector:staff!collected_by(full_name)`,
+      { count: 'exact' },
+    )
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (filters.method) query = query.eq('method', filters.method);
+  if (filters.status) query = query.eq('status', filters.status);
+
+  const { data, error, count } = await query;
+  if (error) {
+    console.error('[db.listPayments] failed:', error);
+    throw serverError('We could not load payments. Please try again.');
+  }
+
+  const payments: PaymentEntry[] = (data ?? []).map((p: any) => ({
+    id: p.id,
+    bookingId: p.booking_id,
+    bookingRef: `#${String(p.booking_id).slice(-6).toUpperCase()}`,
+    customerName: p.booking?.customers?.full_name ?? 'Guest',
+    amountUsd: Number(p.amount_usd ?? 0),
+    method: p.method,
+    status: p.status,
+    collectedByName: p.collector?.full_name ?? null,
+    createdAt: p.created_at,
+  }));
+
+  return { payments, total: count ?? payments.length };
+}
+
+export interface PaymentTotals {
+  todayUsd: number;
+  weekUsd: number;
+  allTimeUsd: number;
+  todayByMethod: { cash: number; stripe: number };
+}
+
+/** Summary tiles for the admin Payments panel. Succeeded payments only. */
+export async function getPaymentTotals(): Promise<PaymentTotals> {
+  const supabase = createAdminClient();
+
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+  const startOfWeek = new Date(now.getTime() - 7 * 86_400_000).toISOString();
+
+  const { data, error } = await supabase
+    .from('payments')
+    .select('amount_usd, method, created_at')
+    .eq('status', 'succeeded')
+    .gte('created_at', startOfWeek);
+
+  if (error) {
+    console.error('[db.getPaymentTotals] week window failed:', error);
+    throw serverError('We could not load payment totals. Please try again.');
+  }
+
+  const { data: allTimeRows, error: allTimeErr } = await supabase
+    .from('payments')
+    .select('amount_usd')
+    .eq('status', 'succeeded');
+
+  if (allTimeErr) {
+    console.error('[db.getPaymentTotals] all-time failed:', allTimeErr);
+    throw serverError('We could not load payment totals. Please try again.');
+  }
+
+  let todayUsd = 0;
+  let weekUsd = 0;
+  const todayByMethod = { cash: 0, stripe: 0 };
+
+  for (const row of data ?? []) {
+    const amount = Number(row.amount_usd ?? 0);
+    weekUsd += amount;
+    if (row.created_at >= startOfToday) {
+      todayUsd += amount;
+      if (row.method === 'cash' || row.method === 'stripe') todayByMethod[row.method] += amount;
+    }
+  }
+
+  const allTimeUsd = (allTimeRows ?? []).reduce((sum, r) => sum + Number(r.amount_usd ?? 0), 0);
+
+  return {
+    todayUsd: round2(todayUsd),
+    weekUsd: round2(weekUsd),
+    allTimeUsd: round2(allTimeUsd),
+    todayByMethod: { cash: round2(todayByMethod.cash), stripe: round2(todayByMethod.stripe) },
+  };
 }
 
 /* eslint-enable @typescript-eslint/no-explicit-any */

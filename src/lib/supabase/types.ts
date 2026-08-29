@@ -130,7 +130,7 @@ export interface Database {
           insurance_total_usd: number;
           grand_total_usd: number;
           payment_method: 'cash' | 'stripe_simulated';
-          payment_status: 'pending' | 'paid' | 'failed';
+          payment_status: 'pending' | 'partially_paid' | 'paid' | 'failed';
           booking_status: 'confirmed' | 'in_transit' | 'deposited' | 'picked_up' | 'cancelled';
           qr_code_token: string;
           /** Added in migration 006 — was previously overloaded into `notes`. */
@@ -259,6 +259,52 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['staff']['Insert']>;
         Relationships: [];
       };
+      payments: {
+        Row: {
+          id: string;
+          booking_id: string;
+          amount_usd: number;
+          method: 'cash' | 'stripe';
+          status: 'pending' | 'succeeded' | 'failed' | 'refunded';
+          stripe_session_id: string | null;
+          stripe_payment_intent_id: string | null;
+          collected_by: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['payments']['Row'], 'id' | 'created_at'> & { id?: string };
+        Update: Partial<Database['public']['Tables']['payments']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'payments_booking_id_fkey';
+            columns: ['booking_id'];
+            isOneToOne: false;
+            referencedRelation: 'bookings';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'payments_collected_by_fkey';
+            columns: ['collected_by'];
+            isOneToOne: false;
+            referencedRelation: 'staff';
+            referencedColumns: ['user_id'];
+          },
+        ];
+      };
+      email_log: {
+        Row: {
+          id: string;
+          booking_id: string | null;
+          to_email: string;
+          template: string;
+          provider: string;
+          status: 'sent' | 'failed';
+          error: string | null;
+          created_at: string;
+        };
+        Insert: Omit<Database['public']['Tables']['email_log']['Row'], 'id' | 'created_at'> & { id?: string };
+        Update: never;
+        Relationships: [];
+      };
       audit_log: {
         Row: {
           id: string;
@@ -317,3 +363,5 @@ export type BookingItemRow = Database['public']['Tables']['booking_items']['Row'
 export type CustomerRow = Database['public']['Tables']['customers']['Row'];
 export type AuditLogRow = Database['public']['Tables']['audit_log']['Row'];
 export type AppSettingRow = Database['public']['Tables']['app_settings']['Row'];
+export type PaymentRow = Database['public']['Tables']['payments']['Row'];
+export type EmailLogRow = Database['public']['Tables']['email_log']['Row'];

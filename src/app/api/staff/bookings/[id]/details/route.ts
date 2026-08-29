@@ -1,9 +1,12 @@
-import { getBookingById, updateBookingDetails } from '@/lib/db';
+import { getBookingById, updateBookingDetails, createPendingStripePayment } from '@/lib/db';
 import { requireStaff } from '@/lib/auth/guard';
 import { writeAudit, redact } from '@/lib/audit';
+import { sendBalanceDueEmail } from '@/lib/email';
+import { createCheckoutSession, isStripeConfigured } from '@/lib/stripe';
 import { parseBody, bookingEditSchema, idSchema } from '@/lib/validation/schemas';
 import { badRequest, fail, notFound, ok, tooManyRequests, clientIp, NO_STORE } from '@/lib/api/http';
 import { rateLimit } from '@/lib/security/rateLimit';
+import { bookingRef } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +66,32 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         paymentStatus: updated.paymentStatus,
       }),
     });
+
+    if (balanceNowDue) {
+      let payUrl: string | undefined;
+      if (isStripeConfigured()) {
+        try {
+          const origin = new URL(req.url).origin;
+          const session = await createCheckoutSession({
+            bookingId: id,
+            amountUsd: updated.balanceDueUsd,
+            description: `Stowaway — balance due for booking ${bookingRef(id)}`,
+            customerEmail: updated.email || undefined,
+            successUrl: `${origin}/booking/${id}/confirmation?pm=stripe&paid=1`,
+            cancelUrl: `${origin}/booking/${id}`,
+          });
+          if (session.url) {
+            await createPendingStripePayment(id, updated.balanceDueUsd, session.id);
+            payUrl = session.url;
+          }
+        } catch (e) {
+          console.error('[staff.bookings.details.PATCH] checkout session for balance-due email failed:', e);
+        }
+      }
+      sendBalanceDueEmail(updated, payUrl).catch((e) =>
+        console.error('[staff.bookings.details.PATCH] balance-due email failed:', e),
+      );
+    }
 
     return ok({ booking: updated, balanceNowDue }, NO_STORE);
   } catch (err) {

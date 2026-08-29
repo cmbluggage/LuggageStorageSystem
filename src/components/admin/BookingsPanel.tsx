@@ -9,6 +9,7 @@ import type { BookingRecord } from '@/lib/db';
 import { PanelHeader, ErrorBanner, EmptyState } from './primitives';
 import { BookingEditForm } from './BookingEditForm';
 import { CashCollectButton } from './CashCollectButton';
+import { PayLinkButton } from './PayLinkButton';
 import { QrScanButton } from '@/components/staff/QrScanButton';
 import {
   Search, ChevronDown, ChevronRight, Phone, MessageCircle, Plane,
@@ -229,10 +230,10 @@ export function BookingsPanel() {
                       ].join(' ')}
                     >
                       {b.paymentMethod === 'stripe' ? <CreditCard className="w-3 h-3" /> : <Banknote className="w-3 h-3" />}
-                      {b.paymentStatus}
+                      {b.paymentStatus.replace('_', ' ')}
                     </span>
                     <span className="text-sm font-extrabold text-slate-900 tabular-nums">
-                      {formatUSD(b.grandTotalUsd)}
+                      {b.balanceDueUsd > 0 ? `${formatUSD(b.balanceDueUsd)} due` : formatUSD(b.grandTotalUsd)}
                     </span>
                   </span>
                 </button>
@@ -340,6 +341,7 @@ function BookingDetail({
             <Pencil className="w-3.5 h-3.5" /> Edit
           </button>
           <CashCollectButton booking={b} onCollected={onSaved} />
+          <PayLinkButton booking={b} />
         </div>
 
         {/* Quick Status Transitions */}
@@ -393,6 +395,18 @@ function BookingDetail({
             <span className="font-extrabold text-slate-900">Total</span>
             <span className="font-extrabold text-slate-900 tabular-nums">{formatUSD(b.grandTotalUsd)}</span>
           </li>
+          {b.amountPaidUsd > 0 && (
+            <li className="flex justify-between gap-3 text-emerald-700">
+              <span className="font-semibold">Paid so far</span>
+              <span className="font-bold tabular-nums">{formatUSD(b.amountPaidUsd)}</span>
+            </li>
+          )}
+          {b.balanceDueUsd > 0 && (
+            <li className="flex justify-between gap-3 text-amber-700">
+              <span className="font-bold">Balance due</span>
+              <span className="font-extrabold tabular-nums">{formatUSD(b.balanceDueUsd)}</span>
+            </li>
+          )}
         </ul>
       </div>
 

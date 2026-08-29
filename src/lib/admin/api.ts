@@ -1,5 +1,5 @@
 import type { AppSettingRow, ItemTierRow, LocationRow, AddonRow, TimeSlotRow } from '@/lib/supabase/types';
-import type { BookingRecord } from '@/lib/db';
+import type { BookingRecord, PaymentEntry, PaymentTotals } from '@/lib/db';
 
 /**
  * Typed client for the admin API.
@@ -141,6 +141,25 @@ export const bookingsApi = {
     request<{ searchResults: BookingRecord[] }>(`/api/staff/operations?q=${encodeURIComponent(q)}`),
   collectCash: (id: string) =>
     request<{ booking: BookingRecord }>(`/api/staff/bookings/${id}/collect-cash`, { method: 'PATCH' }),
+  createPayLink: (id: string) =>
+    request<{ url: string; amountUsd: number }>(`/api/bookings/${id}/checkout`, { method: 'POST' }),
+};
+
+export interface PaymentQuery {
+  method?: string;
+  status?: string;
+  limit?: number;
+  offset?: number;
+}
+
+export const paymentsApi = {
+  list: (query: PaymentQuery = {}) => {
+    const params = new URLSearchParams();
+    for (const [k, v] of Object.entries(query)) {
+      if (v !== undefined && v !== '') params.set(k, String(v));
+    }
+    return request<{ payments: PaymentEntry[]; total: number; totals: PaymentTotals }>(`/api/admin/payments?${params}`);
+  },
 };
 
 export interface AuditEntry {

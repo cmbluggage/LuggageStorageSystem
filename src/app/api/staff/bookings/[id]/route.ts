@@ -1,6 +1,7 @@
 import { getBookingById, updateBookingStatus } from '@/lib/db';
 import { requireStaff } from '@/lib/auth/guard';
 import { writeAudit } from '@/lib/audit';
+import { sendStatusUpdateEmail, sendBookingCancelledEmail } from '@/lib/email';
 import { parseBody, bookingStatusSchema, idSchema } from '@/lib/validation/schemas';
 import { badRequest, fail, notFound, ok, NO_STORE } from '@/lib/api/http';
 import type { BookingRecord } from '@/lib/db';
@@ -59,6 +60,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       oldValues: { booking_status: current.status },
       newValues: { booking_status: bookingStatus },
     });
+
+    // Best-effort — a failed send must never fail the status change itself.
+    const emailPromise =
+      bookingStatus === 'cancelled'
+        ? sendBookingCancelledEmail(updated, cancelReason)
+        : sendStatusUpdateEmail(updated, bookingStatus);
+    emailPromise.catch((e) => console.error('[staff.bookings.PATCH] status email failed:', e));
 
     return ok({ booking: updated }, NO_STORE);
   } catch (err) {

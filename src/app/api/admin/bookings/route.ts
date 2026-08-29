@@ -7,7 +7,7 @@ import type { PaymentStatus } from '@/lib/locations';
 export const dynamic = 'force-dynamic';
 
 const STATUSES = new Set(['confirmed', 'in_transit', 'deposited', 'picked_up', 'cancelled']);
-const PAYMENT_STATUSES = new Set(['pending', 'paid', 'failed']);
+const PAYMENT_STATUSES = new Set(['pending', 'partially_paid', 'paid', 'failed']);
 
 /**
  * GET /api/admin/bookings — paginated booking browser for the admin panel.

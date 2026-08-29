@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client';
 import { notify } from '@/lib/toast';
 import { BookingEditForm } from '@/components/admin/BookingEditForm';
 import { CashCollectButton } from '@/components/admin/CashCollectButton';
+import { PayLinkButton } from '@/components/admin/PayLinkButton';
 import { QrScanButton } from '@/components/staff/QrScanButton';
 import {
   Box, Plane, MapPin, LogOut, Briefcase, RefreshCw, Phone, MessageCircle,
@@ -529,7 +530,7 @@ function TaskRow({
 
             {booking.paymentStatus !== 'paid' && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 uppercase">
-                Collect {formatUSD(booking.grandTotalUsd)}
+                Collect {formatUSD(booking.balanceDueUsd)}
               </span>
             )}
           </div>
@@ -544,29 +545,29 @@ function TaskRow({
             href={telHref}
             aria-label={`Call ${booking.fullName || 'customer'}`}
             title={booking.phone}
-            className="w-9 h-9 rounded-full bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700
+            className="w-11 h-11 rounded-full bg-slate-100 hover:bg-orange-100 text-slate-700 hover:text-orange-700
                        flex items-center justify-center transition-colors"
           >
-            <Phone className="w-4 h-4" />
+            <Phone className="w-5 h-5" />
           </a>
           <a
             href={waHref}
             target="_blank"
             rel="noopener noreferrer"
             aria-label={`WhatsApp ${booking.fullName || 'customer'}`}
-            className="w-9 h-9 rounded-full bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-700
+            className="w-11 h-11 rounded-full bg-slate-100 hover:bg-emerald-100 text-slate-700 hover:text-emerald-700
                        flex items-center justify-center transition-colors"
           >
-            <MessageCircle className="w-4 h-4" />
+            <MessageCircle className="w-5 h-5" />
           </a>
           <button
             onClick={onToggle}
             aria-expanded={expanded}
             aria-label="Toggle booking details"
-            className="w-9 h-9 rounded-full hover:bg-slate-100 text-slate-500 flex items-center justify-center
+            className="w-11 h-11 rounded-full hover:bg-slate-100 text-slate-500 flex items-center justify-center
                        transition-colors cursor-pointer"
           >
-            {expanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+            {expanded ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
           </button>
         </div>
       </div>
@@ -575,6 +576,7 @@ function TaskRow({
         <div className="px-4 pb-4 pt-1 border-t border-slate-100 mt-1">
           <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
             <CashCollectButton booking={booking} onCollected={onEditSaved} />
+            <PayLinkButton booking={booking} />
             <button
               onClick={onEdit}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors cursor-pointer"
@@ -597,7 +599,7 @@ function TaskRow({
             <Detail
               icon={<Clock className="w-3.5 h-3.5" />}
               label="Payment"
-              value={`${booking.paymentMethod === 'stripe' ? 'Card' : 'Cash'} — ${booking.paymentStatus} (${formatUSD(booking.grandTotalUsd)})`}
+              value={paymentSummary(booking)}
             />
             <Detail icon={<Clock className="w-3.5 h-3.5" />} label="Duration" value={`${booking.durationDays} day(s)`} />
           </dl>
@@ -623,10 +625,12 @@ function TaskRow({
           {action && (
             <Button
               variant="primary"
-              size="sm"
+              size="lg"
+              fullWidth
               loading={busy}
               onClick={() => onAdvance(task, action.next)}
               id={`advance-${task.taskId}`}
+              className="text-base font-extrabold py-4"
             >
               {action.label}
             </Button>
@@ -634,10 +638,18 @@ function TaskRow({
         </div>
       )}
 
-      {/* Collapsed primary action, so the common case is one tap */}
+      {/* Collapsed primary action, so the common case is one tap — big and
+          full-width, this is the button staff reach for the most. */}
       {!expanded && action && (
-        <div className="px-4 pb-3 -mt-1 flex justify-end">
-          <Button variant="primary" size="sm" loading={busy} onClick={() => onAdvance(task, action.next)}>
+        <div className="px-4 pb-4 -mt-1">
+          <Button
+            variant="primary"
+            size="lg"
+            fullWidth
+            loading={busy}
+            onClick={() => onAdvance(task, action.next)}
+            className="text-base font-extrabold py-4"
+          >
             {action.label}
           </Button>
         </div>
@@ -685,7 +697,7 @@ function SearchResultRow({
             {booking.isAirportBooking && <Plane className="w-3.5 h-3.5 text-slate-400" />}
             {booking.paymentStatus !== 'paid' && (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 uppercase">
-                Collect {formatUSD(booking.grandTotalUsd)}
+                Collect {formatUSD(booking.balanceDueUsd)}
               </span>
             )}
           </div>
@@ -712,6 +724,7 @@ function SearchResultRow({
               <Pencil className="w-3.5 h-3.5" /> Edit
             </button>
             <CashCollectButton booking={booking} onCollected={onRefresh} />
+            <PayLinkButton booking={booking} />
           </div>
 
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-xs mb-4">
@@ -720,7 +733,7 @@ function SearchResultRow({
             <Detail icon={<Plane className="w-3.5 h-3.5" />} label="Flight #" value={booking.flightNumber || '—'} />
             <Detail icon={<Box className="w-3.5 h-3.5" />} label="Drop-off" value={`${booking.dropoffLocationName} · ${new Date(booking.dropoffTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`} />
             <Detail icon={<MapPin className="w-3.5 h-3.5" />} label="Pick-up" value={`${booking.pickupLocationName} · ${new Date(booking.pickupTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`} />
-            <Detail icon={<Clock className="w-3.5 h-3.5" />} label="Payment" value={`${booking.paymentMethod === 'stripe' ? 'Card' : 'Cash'} — ${booking.paymentStatus} (${formatUSD(booking.grandTotalUsd)})`} />
+            <Detail icon={<Clock className="w-3.5 h-3.5" />} label="Payment" value={paymentSummary(booking)} />
             <Detail icon={<Shield className="w-3.5 h-3.5" />} label="Insurance" value={booking.insuranceEnabled ? `Yes — ${formatUSD(booking.insuranceTotalUsd)}` : 'No'} />
           </dl>
 
@@ -756,6 +769,15 @@ function SearchResultRow({
 }
 
 // ── Small presentational pieces ─────────────────────────────────────────
+
+function paymentSummary(booking: BookingRecord): string {
+  const method = booking.paymentMethod === 'stripe' ? 'Card' : 'Cash';
+  if (booking.balanceDueUsd <= 0) return `${method} — paid (${formatUSD(booking.grandTotalUsd)})`;
+  if (booking.amountPaidUsd > 0) {
+    return `${method} — ${formatUSD(booking.balanceDueUsd)} due (${formatUSD(booking.amountPaidUsd)} paid of ${formatUSD(booking.grandTotalUsd)})`;
+  }
+  return `${method} — ${formatUSD(booking.grandTotalUsd)} due`;
+}
 
 function Detail({
   icon, label, value, mono, title,

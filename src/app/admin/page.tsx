@@ -7,12 +7,13 @@ import { SettingsPanel } from '@/components/admin/SettingsPanel';
 import { CatalogEditor, type FieldDef } from '@/components/admin/CatalogEditor';
 import { TimeSlotsPanel } from '@/components/admin/TimeSlotsPanel';
 import { BookingsPanel } from '@/components/admin/BookingsPanel';
+import { PaymentsPanel } from '@/components/admin/PaymentsPanel';
 import { AuditPanel } from '@/components/admin/AuditPanel';
 import { itemTiersApi, locationsApi, addonsApi } from '@/lib/admin/api';
 import type { ItemTierRow, LocationRow, AddonRow } from '@/lib/supabase/types';
 import {
   Luggage, MapPin, Plane, Clock, LogOut, ShieldCheck,
-  SlidersHorizontal, ClipboardList, ScrollText, Menu, X,
+  SlidersHorizontal, ClipboardList, ScrollText, Menu, X, Wallet,
 } from 'lucide-react';
 
 /**
@@ -25,7 +26,7 @@ import {
  * API, and every business value is editable under Settings.
  */
 
-type AdminTab = 'bookings' | 'item-tiers' | 'addons' | 'locations' | 'time-slots' | 'settings' | 'audit-log';
+type AdminTab = 'bookings' | 'payments' | 'item-tiers' | 'addons' | 'locations' | 'time-slots' | 'settings' | 'audit-log';
 
 /**
  * Grouped the way a business owner actually thinks about the operation,
@@ -35,6 +36,7 @@ type AdminTab = 'bookings' | 'item-tiers' | 'addons' | 'locations' | 'time-slots
  */
 const TABS: { id: AdminTab; label: string; icon: React.ReactNode; group: string }[] = [
   { id: 'bookings',   label: 'Bookings',          icon: <ClipboardList className="w-4 h-4" />,    group: 'Day to day' },
+  { id: 'payments',   label: 'Payments',          icon: <Wallet className="w-4 h-4" />,           group: 'Day to day' },
   { id: 'item-tiers', label: 'Item Tiers',        icon: <Luggage className="w-4 h-4" />,          group: 'Pricing & Catalog' },
   { id: 'addons',     label: 'Add-on Services',   icon: <Plane className="w-4 h-4" />,            group: 'Pricing & Catalog' },
   { id: 'locations',  label: 'Locations',         icon: <MapPin className="w-4 h-4" />,           group: 'Locations & Schedule' },
@@ -250,6 +252,7 @@ export default function AdminPanel() {
 
           {tab === 'time-slots' && <TimeSlotsPanel />}
           {tab === 'bookings' && <BookingsPanel />}
+          {tab === 'payments' && <PaymentsPanel />}
           {tab === 'audit-log' && <AuditPanel />}
         </main>
       </div>
