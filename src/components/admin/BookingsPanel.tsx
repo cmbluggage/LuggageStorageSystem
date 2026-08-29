@@ -341,7 +341,7 @@ function BookingDetail({
             <Pencil className="w-3.5 h-3.5" /> Edit
           </button>
           <CashCollectButton booking={b} onCollected={onSaved} />
-          <PayLinkButton booking={b} />
+          <PayLinkButton booking={b} onPaid={onSaved} />
         </div>
 
         {/* Quick Status Transitions */}

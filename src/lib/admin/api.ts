@@ -139,6 +139,7 @@ export const bookingsApi = {
     }),
   search: (q: string) =>
     request<{ searchResults: BookingRecord[] }>(`/api/staff/operations?q=${encodeURIComponent(q)}`),
+  get: (id: string) => request<{ booking: BookingRecord }>(`/api/staff/bookings/${id}`),
   collectCash: (id: string) =>
     request<{ booking: BookingRecord }>(`/api/staff/bookings/${id}/collect-cash`, { method: 'PATCH' }),
   createPayLink: (id: string) =>

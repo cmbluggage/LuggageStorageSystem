@@ -458,7 +458,7 @@ function TaskRow({
           <Pencil className="w-4 h-4" /> Edit / Extend
         </button>
         <CashCollectButton booking={booking} onCollected={onEditSaved} />
-        <PayLinkButton booking={booking} />
+        <PayLinkButton booking={booking} onPaid={onEditSaved} />
       </div>
 
       {/* One big primary action — the button staff reach for the most */}
@@ -606,7 +606,7 @@ function SearchResultRow({
           <Pencil className="w-4 h-4" /> Edit / Extend
         </button>
         <CashCollectButton booking={booking} onCollected={onRefresh} />
-        <PayLinkButton booking={booking} />
+        <PayLinkButton booking={booking} onPaid={onRefresh} />
       </div>
 
       {expanded && (
