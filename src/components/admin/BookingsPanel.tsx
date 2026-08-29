@@ -347,21 +347,25 @@ function BookingDetail({
         {/* Quick Status Transitions */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>
-          {['confirmed', 'in_transit', 'deposited', 'picked_up', 'cancelled'].map((st) => (
-            <button
-              key={st}
-              disabled={updating || b.status === st}
-              onClick={() => onUpdateStatus(b.id, st, b.fullName)}
-              className={[
-                'px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer',
-                b.status === st
-                  ? 'bg-slate-900 text-white cursor-default'
-                  : 'bg-slate-100 text-slate-600 hover:bg-orange-50 hover:text-orange-700 disabled:opacity-40',
-              ].join(' ')}
-            >
-              {st.replace('_', ' ')}
-            </button>
-          ))}
+          {['confirmed', 'in_transit', 'deposited', 'picked_up', 'cancelled'].map((st) => {
+            const blocked = st === 'picked_up' && b.balanceDueUsd > 0;
+            return (
+              <button
+                key={st}
+                disabled={updating || b.status === st || blocked}
+                title={blocked ? `Collect ${formatUSD(b.balanceDueUsd)} before marking picked up` : undefined}
+                onClick={() => onUpdateStatus(b.id, st, b.fullName)}
+                className={[
+                  'px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer',
+                  b.status === st
+                    ? 'bg-slate-900 text-white cursor-default'
+                    : 'bg-slate-100 text-slate-600 hover:bg-orange-50 hover:text-orange-700 disabled:opacity-40',
+                ].join(' ')}
+              >
+                {st.replace('_', ' ')}
+              </button>
+            );
+          })}
         </div>
       </div>
 

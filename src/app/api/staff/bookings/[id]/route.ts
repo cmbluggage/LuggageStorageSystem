@@ -3,7 +3,8 @@ import { requireStaff } from '@/lib/auth/guard';
 import { writeAudit } from '@/lib/audit';
 import { sendStatusUpdateEmail, sendBookingCancelledEmail } from '@/lib/email';
 import { parseBody, bookingStatusSchema, idSchema } from '@/lib/validation/schemas';
-import { badRequest, fail, notFound, ok, NO_STORE } from '@/lib/api/http';
+import { badRequest, conflict, fail, notFound, ok, NO_STORE } from '@/lib/api/http';
+import { formatUSD } from '@/lib/currency';
 import type { BookingRecord } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
@@ -46,6 +47,15 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       throw badRequest(
         `A booking that is "${current.status.replace('_', ' ')}" cannot move to ` +
           `"${bookingStatus.replace('_', ' ')}".`,
+      );
+    }
+
+    // Bags don't leave with money still owed. Enforced here, not just in
+    // the UI, so this can't be bypassed by a direct API call either —
+    // collect the balance (cash or a pay link) first, then hand over.
+    if (bookingStatus === 'picked_up' && current.balanceDueUsd > 0) {
+      throw conflict(
+        `${formatUSD(current.balanceDueUsd)} is still owed on this booking. Collect it before marking picked up.`,
       );
     }
 

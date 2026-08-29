@@ -363,6 +363,9 @@ function TaskRow({
   const at = new Date(task.at);
   const overdue = at.getTime() < nowMs;
   const action = NEXT_ACTION[task.kind][booking.status];
+  // Bags don't leave with a balance still owed — collect it (cash or pay
+  // link, both already visible above) before this button unlocks.
+  const blockedByBalance = task.kind === 'pickup' && booking.balanceDueUsd > 0;
 
   const itemSummary =
     booking.items.length > 0
@@ -469,11 +472,12 @@ function TaskRow({
             size="lg"
             fullWidth
             loading={busy}
+            disabled={blockedByBalance}
             onClick={() => onAdvance(task, action.next)}
             id={`advance-${task.taskId}`}
             className="text-base font-extrabold py-4"
           >
-            {action.label}
+            {blockedByBalance ? `Collect ${formatUSD(booking.balanceDueUsd)} first` : action.label}
           </Button>
         </div>
       )}
@@ -630,21 +634,25 @@ function SearchResultRow({
 
           <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mr-1">Status:</span>
-            {STATUS_OPTIONS.map((st) => (
-              <button
-                key={st}
-                disabled={busy || booking.status === st}
-                onClick={() => onSetStatus(st)}
-                className={[
-                  'px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer',
-                  booking.status === st
-                    ? 'bg-slate-900 text-white cursor-default'
-                    : 'bg-slate-100 text-slate-600 hover:bg-orange-50 hover:text-orange-700 disabled:opacity-40',
-                ].join(' ')}
-              >
-                {st.replace('_', ' ')}
-              </button>
-            ))}
+            {STATUS_OPTIONS.map((st) => {
+              const blocked = st === 'picked_up' && booking.balanceDueUsd > 0;
+              return (
+                <button
+                  key={st}
+                  disabled={busy || booking.status === st || blocked}
+                  title={blocked ? `Collect ${formatUSD(booking.balanceDueUsd)} before marking picked up` : undefined}
+                  onClick={() => onSetStatus(st)}
+                  className={[
+                    'px-2.5 py-1 rounded-full text-[11px] font-bold transition-all cursor-pointer',
+                    booking.status === st
+                      ? 'bg-slate-900 text-white cursor-default'
+                      : 'bg-slate-100 text-slate-600 hover:bg-orange-50 hover:text-orange-700 disabled:opacity-40',
+                  ].join(' ')}
+                >
+                  {st.replace('_', ' ')}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
