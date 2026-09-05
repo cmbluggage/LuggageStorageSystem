@@ -42,8 +42,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     const origin = new URL(req.url).origin;
     const description =
       booking.amountPaidUsd > 0
-        ? `Stowaway — balance due for booking ${bookingRef(id)}`
-        : `Stowaway — booking ${bookingRef(id)}`;
+        ? `Luggage Storage Colombo — balance due for booking ${bookingRef(id)}`
+        : `Luggage Storage Colombo — booking ${bookingRef(id)}`;
 
     const session = await createCheckoutSession({
       bookingId: id,

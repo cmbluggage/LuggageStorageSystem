@@ -100,15 +100,14 @@ export interface Database {
           id: string;
           phone: string;
           full_name: string | null;
-          email: string | null;
+          /** Required since migration 008 — the email-OTP gate needs somewhere to send codes. */
+          email: string;
           passport_number: string | null;
-          otp_code: string | null;
-          otp_expires_at: string | null;
           verified_at: string | null;
           created_at: string;
         };
         Insert: Partial<Omit<Database['public']['Tables']['customers']['Row'], 'id' | 'created_at'>> &
-          Pick<Database['public']['Tables']['customers']['Row'], 'phone'> & { id?: string };
+          Pick<Database['public']['Tables']['customers']['Row'], 'phone' | 'email'> & { id?: string };
         Update: Partial<Database['public']['Tables']['customers']['Insert']>;
         Relationships: [];
       };
@@ -304,6 +303,36 @@ export interface Database {
         Insert: Omit<Database['public']['Tables']['email_log']['Row'], 'id' | 'created_at'> & { id?: string };
         Update: never;
         Relationships: [];
+      };
+      otp_verifications: {
+        Row: {
+          id: string;
+          email: string;
+          purpose: 'booking_create' | 'booking_lookup';
+          code_hash: string;
+          expires_at: string;
+          attempts: number;
+          max_attempts: number;
+          verified_at: string | null;
+          used_at: string | null;
+          customer_id: string | null;
+          request_ip: string | null;
+          created_at: string;
+        };
+        Insert: Partial<Omit<Database['public']['Tables']['otp_verifications']['Row'], 'id' | 'created_at'>> &
+          Pick<Database['public']['Tables']['otp_verifications']['Row'], 'email' | 'purpose' | 'code_hash' | 'expires_at'> & {
+            id?: string;
+          };
+        Update: Partial<Database['public']['Tables']['otp_verifications']['Insert']>;
+        Relationships: [
+          {
+            foreignKeyName: 'otp_verifications_customer_id_fkey';
+            columns: ['customer_id'];
+            isOneToOne: false;
+            referencedRelation: 'customers';
+            referencedColumns: ['id'];
+          },
+        ];
       };
       audit_log: {
         Row: {

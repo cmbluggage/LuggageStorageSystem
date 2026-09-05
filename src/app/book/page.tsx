@@ -16,7 +16,7 @@ import { bookingTouchesAirport } from '@/lib/locations';
 import { DEFAULT_SETTINGS, type PublicSettings } from '@/lib/settings';
 import { notify } from '@/lib/toast';
 import { isValidPhoneNumber } from 'libphonenumber-js';
-import { User, Mail, FileText, Plane, AlertCircle, Phone } from 'lucide-react';
+import { User, Mail, FileText, Plane, AlertCircle, Phone, ShieldCheck } from 'lucide-react';
 
 /** Public settings shape returned by GET /api/settings. */
 const FALLBACK_SETTINGS: PublicSettings = {
@@ -89,6 +89,17 @@ function BookingWizard() {
   const [emailError,    setEmailError]    = useState('');
   const [passportError, setPassportError] = useState('');
   const [whatsappError, setWhatsappError] = useState('');
+
+  // ── Email verification (OTP) ──────────────────────────────────
+  // Resets whenever `email` changes after a code was sent/verified, so a
+  // customer can't verify address A then submit with address B.
+  const [otpStage,      setOtpStage]      = useState<'idle' | 'sent' | 'verified'>('idle');
+  const [otpRequestId,  setOtpRequestId]  = useState<string | null>(null);
+  const [otpCode,       setOtpCode]       = useState('');
+  const [otpLoading,    setOtpLoading]    = useState(false);
+  const [otpError,      setOtpError]      = useState('');
+  const [otpCooldown,   setOtpCooldown]   = useState(0);
+  const [verifiedEmail, setVerifiedEmail] = useState('');
 
   // ── UI state ─────────────────────────────────────────────────
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -234,6 +245,91 @@ function BookingWizard() {
     });
   }, []);
 
+  // ── Email verification (OTP) ──────────────────────────────────
+  useEffect(() => {
+    if (otpCooldown <= 0) return;
+    const t = setInterval(() => setOtpCooldown((s) => Math.max(0, s - 1)), 1000);
+    return () => clearInterval(t);
+  }, [otpCooldown]);
+
+  const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  const requestEmailOtp = async () => {
+    const trimmed = email.trim();
+    if (!emailRx.test(trimmed)) {
+      setEmailError('Please enter a valid email address (e.g. name@example.com).');
+      return;
+    }
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      const res = await fetch('/api/otp/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contact: trimmed, purpose: 'booking_create' }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        const msg = data?.error ?? 'We could not send a verification code. Please try again.';
+        setOtpError(msg);
+        notify.error(msg);
+        return;
+      }
+      setOtpRequestId(data.requestId);
+      setOtpStage('sent');
+      setOtpCooldown(60);
+      notify.success('We\'ve emailed you a 6-digit verification code.');
+    } catch {
+      const msg = 'We could not reach our servers. Check your connection and try again.';
+      setOtpError(msg);
+      notify.error(msg);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const verifyEmailOtp = async () => {
+    if (!otpRequestId || otpCode.trim().length !== 6) return;
+    setOtpLoading(true);
+    setOtpError('');
+    try {
+      const res = await fetch('/api/otp/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: otpRequestId, code: otpCode.trim(), purpose: 'booking_create' }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.verified) {
+        const msg = data?.message ?? 'Incorrect or expired code.';
+        setOtpError(msg);
+        notify.error(msg);
+        return;
+      }
+      setOtpStage('verified');
+      setVerifiedEmail(email.trim());
+      notify.success('Email verified.');
+    } catch {
+      const msg = 'We could not reach our servers. Check your connection and try again.';
+      setOtpError(msg);
+      notify.error(msg);
+    } finally {
+      setOtpLoading(false);
+    }
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setEmailError('');
+    // Changing the address after verifying invalidates the verification —
+    // the server checks this too, but resetting client state avoids a
+    // confusing "verified" badge next to an address that was never checked.
+    if (otpStage !== 'idle' && value.trim() !== verifiedEmail) {
+      setOtpStage('idle');
+      setOtpRequestId(null);
+      setOtpCode('');
+    }
+  };
+
   // ── Validation ───────────────────────────────────────────────
   const validatePersonalDetails = (): boolean => {
     let valid = true;
@@ -246,9 +342,11 @@ function BookingWizard() {
       setFullNameError('Please enter your full name (at least 2 characters).');
       valid = false;
     }
-    const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!email.trim() || !emailRx.test(email.trim())) {
       setEmailError('Please enter a valid email address (e.g. name@example.com).');
+      valid = false;
+    } else if (otpStage !== 'verified' || email.trim() !== verifiedEmail) {
+      setEmailError('Please verify your email address before continuing.');
       valid = false;
     }
     if (!passportNo.trim() || passportNo.trim().length < 3) {
@@ -267,6 +365,10 @@ function BookingWizard() {
     setSubmitError('');
     if (!validatePersonalDetails()) {
       notify.error('Please fix the errors in your contact details before submitting.');
+      return;
+    }
+    if (!otpRequestId) {
+      setSubmitError('Please verify your email address before continuing.');
       return;
     }
 
@@ -358,6 +460,7 @@ function BookingWizard() {
           // Stable for this attempt, so a double-click or a retry after a
           // timeout returns the original booking instead of a duplicate.
           idempotencyKey: bookingTempId,
+          emailVerificationId: otpRequestId,
         }),
       });
 
@@ -379,7 +482,6 @@ function BookingWizard() {
 
       if (typeof window !== 'undefined') {
         sessionStorage.setItem('stowaway_checkout_session', JSON.stringify(checkoutSessionPayload));
-        localStorage.setItem('stowaway_customer_phone', verifiedPhone);
         sessionStorage.removeItem('stowaway_booking_state');
       }
 
@@ -578,21 +680,87 @@ function BookingWizard() {
                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
                           <Mail className="w-3.5 h-3.5 text-orange-600" /> Email Address (for receipt) *
                         </label>
-                        <input
-                          type="email"
-                          placeholder="john@example.com"
-                          value={email}
-                          onChange={(e) => { setEmail(e.target.value); setEmailError(''); }}
-                          className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none transition-all ${
-                            emailError
-                              ? 'border-red-500 ring-2 ring-red-500/20'
-                              : 'border-slate-300 focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20'
-                          }`}
-                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="email"
+                            placeholder="john@example.com"
+                            value={email}
+                            disabled={otpStage === 'sent'}
+                            onChange={(e) => handleEmailChange(e.target.value)}
+                            className={`flex-1 bg-slate-50 border rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none transition-all disabled:opacity-60 ${
+                              emailError
+                                ? 'border-red-500 ring-2 ring-red-500/20'
+                                : 'border-slate-300 focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20'
+                            }`}
+                          />
+                          {otpStage !== 'verified' && (
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              size="md"
+                              loading={otpLoading && otpStage !== 'sent'}
+                              disabled={otpStage === 'sent' || !email.trim()}
+                              onClick={requestEmailOtp}
+                              className="flex-shrink-0 whitespace-nowrap"
+                            >
+                              Send code
+                            </Button>
+                          )}
+                          {otpStage === 'verified' && (
+                            <span className="flex items-center gap-1.5 px-3 py-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex-shrink-0">
+                              <ShieldCheck className="w-4 h-4" /> Verified
+                            </span>
+                          )}
+                        </div>
                         {emailError && (
                           <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
                             <AlertCircle className="w-3 h-3" /> {emailError}
                           </p>
+                        )}
+
+                        {otpStage === 'sent' && (
+                          <div className="mt-3 p-4 bg-orange-50 border border-orange-200 rounded-xl">
+                            <label className="block text-xs font-bold uppercase tracking-wider text-orange-900 mb-2">
+                              Enter the 6-digit code we emailed you
+                            </label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                inputMode="numeric"
+                                autoComplete="one-time-code"
+                                maxLength={6}
+                                value={otpCode}
+                                onChange={(e) => { setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setOtpError(''); }}
+                                placeholder="123456"
+                                className="flex-1 bg-white border border-orange-300 rounded-xl px-4 py-3 text-lg font-black tracking-[0.4em] text-center text-slate-900 placeholder-slate-300 focus:outline-none focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20"
+                              />
+                              <Button
+                                type="button"
+                                variant="primary"
+                                size="md"
+                                loading={otpLoading}
+                                disabled={otpCode.length !== 6}
+                                onClick={verifyEmailOtp}
+                              >
+                                Verify
+                              </Button>
+                            </div>
+                            <div className="flex items-center justify-between mt-2">
+                              {otpError && (
+                                <p className="text-xs font-semibold text-red-600 flex items-center gap-1">
+                                  <AlertCircle className="w-3 h-3" /> {otpError}
+                                </p>
+                              )}
+                              <button
+                                type="button"
+                                onClick={requestEmailOtp}
+                                disabled={otpCooldown > 0 || otpLoading}
+                                className="text-xs font-bold text-orange-700 hover:text-orange-800 disabled:text-slate-300 disabled:cursor-not-allowed ml-auto"
+                              >
+                                {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : 'Resend code'}
+                              </button>
+                            </div>
+                          </div>
                         )}
                       </div>
 

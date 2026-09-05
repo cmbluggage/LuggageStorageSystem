@@ -49,7 +49,7 @@ export function isEmailConfigured(): boolean {
   return isResendConfigured() || isSmtpConfigured();
 }
 
-const FROM_ADDRESS = process.env.EMAIL_FROM || 'Stowaway <onboarding@resend.dev>';
+const FROM_ADDRESS = process.env.EMAIL_FROM || 'Luggage Storage Colombo <onboarding@resend.dev>';
 
 let resendClient: Resend | null = null;
 function getResend(): Resend {

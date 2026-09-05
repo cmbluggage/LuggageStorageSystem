@@ -16,6 +16,14 @@
 -- Safe to re-run: password/metadata updates are idempotent, and the
 -- auth.identities insert (required for signInWithPassword to work —
 -- Supabase 500s without it) only fires when missing.
+--
+-- Also sets confirmation_token/recovery_token/email_change_token_new/
+-- email_change/email_change_token_current/phone_change/phone_change_token
+-- to '' rather than leaving them NULL. GoTrue (Supabase Auth) scans these
+-- into non-nullable Go string fields on password login and returns a
+-- bare 500 (not a clean "invalid credentials") if any of them are NULL,
+-- which a raw INSERT into auth.users otherwise leaves them as. Caught
+-- once already — don't drop these columns from the INSERT/UPDATE below.
 -- ================================================================
 
 create extension if not exists pgcrypto;
@@ -23,7 +31,9 @@ create extension if not exists pgcrypto;
 -- ── 1. Admin (superadmin) user ──────────────────────────────────
 insert into auth.users
   (id, instance_id, email, encrypted_password, email_confirmed_at,
-   raw_app_meta_data, raw_user_meta_data, created_at, updated_at, role, aud)
+   raw_app_meta_data, raw_user_meta_data, created_at, updated_at, role, aud,
+   confirmation_token, recovery_token, email_change_token_new, email_change,
+   email_change_token_current, phone_change, phone_change_token)
 select
   gen_random_uuid(),
   '00000000-0000-0000-0000-000000000000',
@@ -32,7 +42,8 @@ select
   now(),
   '{"provider":"email","providers":["email"],"role":"superadmin"}'::jsonb,
   '{"full_name":"Operations Director","role":"superadmin"}'::jsonb,
-  now(), now(), 'authenticated', 'authenticated'
+  now(), now(), 'authenticated', 'authenticated',
+  '', '', '', '', '', '', ''
 where not exists (select 1 from auth.users where email = 'admin@stowaway.lk');
 
 update auth.users
@@ -40,13 +51,22 @@ set encrypted_password = crypt('CHANGE_ME_ADMIN_PASSWORD', gen_salt('bf')),
     email_confirmed_at = coalesce(email_confirmed_at, now()),
     raw_app_meta_data  = '{"provider":"email","providers":["email"],"role":"superadmin"}'::jsonb,
     raw_user_meta_data = '{"full_name":"Operations Director","role":"superadmin"}'::jsonb,
-    updated_at         = now()
+    updated_at         = now(),
+    confirmation_token         = coalesce(confirmation_token, ''),
+    recovery_token             = coalesce(recovery_token, ''),
+    email_change_token_new     = coalesce(email_change_token_new, ''),
+    email_change               = coalesce(email_change, ''),
+    email_change_token_current = coalesce(email_change_token_current, ''),
+    phone_change                = coalesce(phone_change, ''),
+    phone_change_token          = coalesce(phone_change_token, '')
 where email = 'admin@stowaway.lk';
 
 -- ── 2. Staff user ────────────────────────────────────────────────
 insert into auth.users
   (id, instance_id, email, encrypted_password, email_confirmed_at,
-   raw_app_meta_data, raw_user_meta_data, created_at, updated_at, role, aud)
+   raw_app_meta_data, raw_user_meta_data, created_at, updated_at, role, aud,
+   confirmation_token, recovery_token, email_change_token_new, email_change,
+   email_change_token_current, phone_change, phone_change_token)
 select
   gen_random_uuid(),
   '00000000-0000-0000-0000-000000000000',
@@ -55,7 +75,8 @@ select
   now(),
   '{"provider":"email","providers":["email"],"role":"staff"}'::jsonb,
   '{"full_name":"Operational Staff","role":"staff"}'::jsonb,
-  now(), now(), 'authenticated', 'authenticated'
+  now(), now(), 'authenticated', 'authenticated',
+  '', '', '', '', '', '', ''
 where not exists (select 1 from auth.users where email = 'staff@stowaway.lk');
 
 update auth.users
@@ -63,7 +84,14 @@ set encrypted_password = crypt('CHANGE_ME_STAFF_PASSWORD', gen_salt('bf')),
     email_confirmed_at = coalesce(email_confirmed_at, now()),
     raw_app_meta_data  = '{"provider":"email","providers":["email"],"role":"staff"}'::jsonb,
     raw_user_meta_data = '{"full_name":"Operational Staff","role":"staff"}'::jsonb,
-    updated_at         = now()
+    updated_at         = now(),
+    confirmation_token         = coalesce(confirmation_token, ''),
+    recovery_token             = coalesce(recovery_token, ''),
+    email_change_token_new     = coalesce(email_change_token_new, ''),
+    email_change               = coalesce(email_change, ''),
+    email_change_token_current = coalesce(email_change_token_current, ''),
+    phone_change                = coalesce(phone_change, ''),
+    phone_change_token          = coalesce(phone_change_token, '')
 where email = 'staff@stowaway.lk';
 
 -- ── 3. public.staff rows (role source for the admin/staff proxy guard) ──

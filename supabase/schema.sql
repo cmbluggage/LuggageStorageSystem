@@ -598,6 +598,51 @@ revoke all on public.email_log from anon, authenticated;
 
 comment on table public.email_log is 'Delivery record for every transactional email attempt, across whichever provider handled it.';
 
+
+-- ================================================================
+-- Migration 008 — Email OTP verification
+--
+-- Replaces the phone-only /my-bookings lookup (a phone number is
+-- knowable/guessable by someone other than the customer, so it was never
+-- a real credential) and adds a gate in front of booking creation, so a
+-- customer's typed email is proven deliverable before a booking is made
+-- against it. Client requirement, 2026-09.
+-- ================================================================
+
+create table if not exists public.otp_verifications (
+  id           uuid primary key default gen_random_uuid(),
+  email        text not null,
+  purpose      text not null check (purpose in ('booking_create', 'booking_lookup')),
+  code_hash    text not null,
+  expires_at   timestamptz not null,
+  attempts     int not null default 0,
+  max_attempts int not null default 5,
+  verified_at  timestamptz,
+  used_at      timestamptz,
+  customer_id  uuid references public.customers(id) on delete cascade,
+  request_ip   text,
+  created_at   timestamptz not null default now()
+);
+
+create index if not exists otp_verifications_email_purpose_idx
+  on public.otp_verifications (email, purpose, created_at desc);
+
+alter table public.otp_verifications enable row level security;
+revoke all on public.otp_verifications from anon, authenticated;
+
+comment on table public.otp_verifications is 'Short-lived email verification codes gating booking creation and the /my-bookings lookup. Service-role only.';
+
+-- Vestigial, never wired into any code path.
+alter table public.customers drop column if exists otp_code;
+alter table public.customers drop column if exists otp_expires_at;
+
+-- Email is now required at booking time (the OTP gate is meaningless on
+-- an optional field) — enforced at the Zod layer too, but a DB
+-- constraint means no future code path can create an email-less customer
+-- by accident.
+update public.customers set email = 'unknown+' || id::text || '@invalid.local' where email is null;
+alter table public.customers alter column email set not null;
+
 -- ================================================================
 -- END OF CONSOLIDATED SCHEMA
 -- Next: run seed_catalog.sql, then seed_accounts.sql,

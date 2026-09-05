@@ -77,7 +77,7 @@ export const bookingItemSchema = z.object({
 export const createBookingSchema = z.object({
   phone: phoneSchema,
   fullName: safeText(120).min(2, 'Please enter your full name.'),
-  email: emailSchema.optional().or(z.literal('')),
+  email: emailSchema,
   passportNo: passportSchema,
   flightNumber: flightNumberSchema.optional().or(z.literal('')),
   notes: safeText(1000).optional().or(z.literal('')),
@@ -91,6 +91,8 @@ export const createBookingSchema = z.object({
   turnstileToken: z.string().max(4096).optional(),
   /** Client-generated key so a double-submit cannot create two bookings. */
   idempotencyKey: z.string().trim().min(8).max(100).optional(),
+  /** otp_verifications.id from a completed /api/otp/verify call for purpose 'booking_create', proving `email` above was verified. */
+  emailVerificationId: z.string().trim().min(1).max(100),
 });
 
 export type CreateBookingInput = z.infer<typeof createBookingSchema>;
@@ -105,15 +107,35 @@ export const bookingStatusSchema = z.object({
   cancelReason: safeText(500).optional(),
 });
 
-export const bookingLookupSchema = z.object({
-  phone: phoneSchema,
+/** Accepts either a phone number or an email — resolved server-side to the on-file email. */
+export const otpContactSchema = z
+  .string()
+  .trim()
+  .min(1, 'Enter your phone number or email address.')
+  .max(254, 'That value is too long.');
+
+export const otpRequestSchema = z.object({
+  contact: otpContactSchema,
+  purpose: z.enum(['booking_create', 'booking_lookup']),
+});
+
+export const otpVerifySchema = z.object({
+  requestId: z.string().trim().min(1).max(100),
+  code: z.string().trim().regex(/^\d{6}$/, 'Enter the 6-digit code.'),
+  purpose: z.enum(['booking_create', 'booking_lookup']),
+});
+
+export const myBookingsQuerySchema = z.object({
+  verificationId: z.string().trim().min(1).max(100),
 });
 
 /** Staff/SuperAdmin edit of an existing booking. Every field optional — a PATCH sends only what changed. */
 export const bookingEditSchema = z
   .object({
     fullName: safeText(120).min(2, 'Please enter a full name.').optional(),
-    email: emailSchema.optional().or(z.literal('')),
+    // No longer clearable to '' — email is NOT NULL on customers since
+    // migration 008 (the OTP gate needs somewhere to send codes).
+    email: emailSchema.optional(),
     flightNumber: flightNumberSchema.optional().or(z.literal('')),
     notes: safeText(1000).optional().or(z.literal('')),
     dropoffLocationId: idSchema.optional(),

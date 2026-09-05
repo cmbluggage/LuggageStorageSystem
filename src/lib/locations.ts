@@ -1,9 +1,8 @@
 /**
  * Airport-location rules — the single source of truth.
  *
- * This logic previously existed in four slightly different copies across
- * db.ts (saveBooking, updateBookingPayment, getBookingsByPhone,
- * getBookingById), each testing a different mix of flags and string
+ * This logic previously existed in several slightly different copies
+ * across db.ts, each testing a different mix of flags and string
  * matches. Since it gates a payment rule, divergence between copies was a
  * live risk. Everything now funnels through `isAirportLocation`.
  */

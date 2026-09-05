@@ -75,7 +75,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           const session = await createCheckoutSession({
             bookingId: id,
             amountUsd: updated.balanceDueUsd,
-            description: `Stowaway — balance due for booking ${bookingRef(id)}`,
+            description: `Luggage Storage Colombo — balance due for booking ${bookingRef(id)}`,
             customerEmail: updated.email || undefined,
             successUrl: `${origin}/booking/${id}/confirmation?pm=stripe&paid=1`,
             cancelUrl: `${origin}/booking/${id}`,

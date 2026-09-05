@@ -83,7 +83,7 @@ export interface BookingRecord {
 export interface SaveBookingInput {
   phone: string;
   fullName: string;
-  email?: string;
+  email: string;
   passportNo: string;
   flightNumber?: string;
   notes?: string;
@@ -243,7 +243,7 @@ export async function saveBooking(input: SaveBookingInput): Promise<BookingRecor
       .from('customers')
       .update({
         full_name: input.fullName,
-        email: input.email || null,
+        email: input.email.trim().toLowerCase(),
         passport_number: input.passportNo,
       })
       .eq('id', customerId);
@@ -254,7 +254,7 @@ export async function saveBooking(input: SaveBookingInput): Promise<BookingRecor
       .insert({
         phone,
         full_name: input.fullName,
-        email: input.email || null,
+        email: input.email.trim().toLowerCase(),
         passport_number: input.passportNo,
       })
       .select('id')
@@ -356,20 +356,46 @@ export async function getBookingById(id: string): Promise<BookingRecord | null> 
   return data ? mapBooking(data) : null;
 }
 
-export async function getBookingsByPhone(phone: string): Promise<BookingRecord[]> {
+export async function getBookingsByCustomerId(customerId: string): Promise<BookingRecord[]> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('bookings')
     .select(BOOKING_SELECT)
-    .eq('customers.phone', phone.trim())
+    .eq('customer_id', customerId)
     .order('created_at', { ascending: false })
     .limit(100);
 
   if (error) {
-    console.error('[db.getBookingsByPhone] failed:', error);
+    console.error('[db.getBookingsByCustomerId] failed:', error);
     throw serverError('We could not load your bookings. Please try again.');
   }
   return (data ?? []).map(mapBooking);
+}
+
+/**
+ * Resolve a customer by phone OR email for the /my-bookings OTP gate.
+ * Returns the on-file email — the caller must send verification codes
+ * only to this value, never to whatever the requester typed, so this
+ * lookup can't be used to relay mail to an address the requester doesn't
+ * already own on the account.
+ */
+export async function findCustomerByContact(contact: string): Promise<{ id: string; email: string } | null> {
+  const supabase = createAdminClient();
+  const trimmed = contact.trim();
+  const isEmail = trimmed.includes('@');
+
+  const { data, error } = await supabase
+    .from('customers')
+    .select('id, email')
+    .eq(isEmail ? 'email' : 'phone', isEmail ? trimmed.toLowerCase() : trimmed)
+    .maybeSingle();
+
+  if (error) {
+    console.error('[db.findCustomerByContact] failed:', error);
+    return null;
+  }
+  if (!data?.email) return null;
+  return { id: data.id as string, email: data.email as string };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -713,7 +739,7 @@ export async function updateBookingDetails(
       .from('customers')
       .update({
         ...(patch.fullName !== undefined ? { full_name: patch.fullName } : {}),
-        ...(patch.email !== undefined ? { email: patch.email || null } : {}),
+        ...(patch.email ? { email: patch.email } : {}),
       })
       .eq('id', row.customer_id);
     if (custErr) console.error('[db.updateBookingDetails] customer update failed:', custErr);

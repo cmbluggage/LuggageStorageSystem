@@ -9,6 +9,7 @@
 --   - auth.users / auth.identities / public.staff  (your login access)
 --
 -- DELETED (in FK-safe order):
+--   - public.otp_verifications
 --   - public.payments, public.booking_items, public.booking_addons
 --   - public.bookings
 --   - public.customers
@@ -35,6 +36,7 @@
 
 begin;
 
+delete from public.otp_verifications;
 delete from public.payments;
 delete from public.booking_addons;
 delete from public.booking_items;
@@ -59,6 +61,7 @@ union all select 'item_tiers', count(*) from public.item_tiers
 union all select 'addon_services', count(*) from public.addon_services
 union all select 'time_slots', count(*) from public.time_slots
 union all select 'app_settings', count(*) from public.app_settings
+union all select 'otp_verifications', count(*) from public.otp_verifications
 union all select 'payments', count(*) from public.payments
 union all select 'audit_log', count(*) from public.audit_log
 union all select 'email_log', count(*) from public.email_log
@@ -74,6 +77,7 @@ union all select 'staff (kept)', count(*) from public.staff;
 -- catalog, comment out the block above and run this instead:
 --
 -- begin;
+-- delete from public.otp_verifications;
 -- delete from public.payments;
 -- delete from public.booking_addons;
 -- delete from public.booking_items;

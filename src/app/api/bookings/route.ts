@@ -1,4 +1,4 @@
-import { saveBooking, getBookingsByPhone } from '@/lib/db';
+import { saveBooking } from '@/lib/db';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateGrandTotal, type TierPricing } from '@/lib/pricing';
 import { bookingTouchesAirport } from '@/lib/locations';
@@ -6,12 +6,8 @@ import { getSettings } from '@/lib/settings';
 import { rateLimit } from '@/lib/security/rateLimit';
 import { verifyTurnstile } from '@/lib/security/turnstile';
 import { sendBookingConfirmedEmail } from '@/lib/email';
-import {
-  parseBody,
-  parseQuery,
-  createBookingSchema,
-  bookingLookupSchema,
-} from '@/lib/validation/schemas';
+import { consumeOtp } from '@/lib/otp';
+import { parseBody, createBookingSchema } from '@/lib/validation/schemas';
 import { badRequest, clientIp, fail, ok, serverError, tooManyRequests, NO_STORE } from '@/lib/api/http';
 import type { LocationRow } from '@/lib/supabase/types';
 
@@ -39,6 +35,16 @@ export async function POST(req: Request) {
       enabled: settings.turnstile_enabled,
       remoteIp: ip,
     });
+
+    // The customer must have proven ownership of `input.email` via
+    // /api/otp/request + /api/otp/verify before we'll create a booking
+    // against it. consumeOtp() re-validates verified/unused/window/email
+    // match and marks it used — single-use, so this exact verification
+    // can't be replayed against a second booking.
+    const emailVerified = await consumeOtp(input.emailVerificationId, 'booking_create', input.email);
+    if (!emailVerified) {
+      throw badRequest('Please verify your email address again before booking.');
+    }
 
     const supabase = createAdminClient();
 
@@ -155,7 +161,7 @@ export async function POST(req: Request) {
     const record = await saveBooking({
       phone: input.phone,
       fullName: input.fullName,
-      email: input.email || undefined,
+      email: input.email,
       passportNo: input.passportNo,
       flightNumber: input.flightNumber || undefined,
       notes: input.notes || undefined,
@@ -187,34 +193,5 @@ export async function POST(req: Request) {
   }
 }
 
-/**
- * GET /api/bookings?phone=... — customer booking history.
- *
- * Per the client's decision there is no customer login: follow-up happens
- * over WhatsApp. Knowing the phone number is therefore the only credential.
- * To keep that from being trivially enumerable we rate-limit lookups hard
- * per IP, and the response omits the passport number.
- */
-export async function GET(req: Request) {
-  try {
-    const ip = clientIp(req);
-    const limit = rateLimit(`lookup:${ip}`, 20, 600_000);
-    if (!limit.allowed) throw tooManyRequests('Too many lookups. Please wait a few minutes and try again.');
-
-    const { phone } = parseQuery(req.url, bookingLookupSchema);
-    const records = await getBookingsByPhone(phone);
-
-    // Strip the identity document and internal staff identity from the
-    // list view — neither is ever needed to display a booking to its
-    // customer.
-    const safe = records.map(({ passportNo, cashCollectedByName, ...rest }) => {
-      void passportNo;
-      void cashCollectedByName;
-      return rest;
-    });
-
-    return ok({ bookings: safe }, NO_STORE);
-  } catch (err) {
-    return fail(err, 'bookings.GET');
-  }
-}
+// GET (phone-only lookup) removed — replaced by GET /api/my-bookings, which
+// requires a completed email OTP verification. See src/lib/otp.ts.

@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { SiteHeader } from '@/components/ui/SiteHeader';
 import { Button } from '@/components/ui/Button';
-import { Lock, ShieldCheck, UserCheck, KeyRound, AlertCircle } from 'lucide-react';
+import { Lock, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { notify } from '@/lib/toast';
 
@@ -101,7 +101,7 @@ export default function LoginPage() {
                   autoComplete="email"
                   value={email}
                   onChange={e => setEmail(e.target.value)}
-                  placeholder="admin@stowaway.lk"
+                  placeholder="you@company.com"
                   required
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-600 focus:bg-white focus:ring-2 focus:ring-orange-600/20 transition-all"
                 />
@@ -142,38 +142,6 @@ export default function LoginPage() {
                 {loading ? 'Signing In...' : 'Sign In to Portal →'}
               </Button>
             </form>
-
-            {/* Seed Credentials Reference */}
-            <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col gap-3">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5 text-orange-600" /> Seed Account Credentials
-              </p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setEmail('admin@stowaway.lk'); setPassword('StowawayAdmin2026!'); setError(''); }}
-                  className="p-3 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl text-left transition-colors cursor-pointer"
-                >
-                  <p className="font-extrabold text-orange-950 flex items-center gap-1 text-xs">
-                    <ShieldCheck className="w-3.5 h-3.5 text-orange-600" /> SuperAdmin
-                  </p>
-                  <p className="text-[10px] text-orange-800 font-mono mt-0.5 truncate">admin@stowaway.lk</p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setEmail('staff@stowaway.lk'); setPassword('StowawayStaff2026!'); setError(''); }}
-                  className="p-3 bg-slate-100 hover:bg-slate-200 border border-slate-300 rounded-xl text-left transition-colors cursor-pointer"
-                >
-                  <p className="font-extrabold text-slate-900 flex items-center gap-1 text-xs">
-                    <UserCheck className="w-3.5 h-3.5 text-slate-700" /> Operations Staff
-                  </p>
-                  <p className="text-[10px] text-slate-600 font-mono mt-0.5 truncate">staff@stowaway.lk</p>
-                </button>
-              </div>
-              <p className="text-[10px] text-slate-400 font-medium mt-1 leading-relaxed">
-                Quick-fill credentials above, then press <strong>Sign In</strong>. Requires Supabase Auth users to be created in your project dashboard.
-              </p>
-            </div>
           </div>
         </div>
       </main>
