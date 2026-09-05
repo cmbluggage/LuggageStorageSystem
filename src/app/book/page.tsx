@@ -969,6 +969,9 @@ function BookingWizard() {
                 {otpCooldown > 0 ? `Resend code in ${otpCooldown}s` : 'Resend code'}
               </button>
             </div>
+            <p className="text-[11px] font-medium text-slate-400 mt-3 text-center">
+              Don&apos;t see it? Check your spam or junk folder.
+            </p>
           </div>
         </div>
       )}
