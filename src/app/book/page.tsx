@@ -56,6 +56,28 @@ const STEP_TITLES = [
   '4. Contact Details & Insurance',
 ];
 
+/**
+ * Mirrors the server's own checks in POST /api/bookings exactly (same
+ * 5-minute grace, same lead-time setting) so a time that will fail at
+ * final submit is caught here instead — previously this only surfaced
+ * after filling in step 4's contact details, forcing a trip back.
+ * Takes `nowMs` explicitly (rather than calling Date.now() itself) so it
+ * stays a pure function safe to call from render.
+ */
+function computeTimeError(dropoffTime: string, pickupTime: string, leadHours: number, nowMs: number): string {
+  if (!dropoffTime || !pickupTime) return '';
+  const dropoffAt = new Date(dropoffTime).getTime();
+  const pickupAt = new Date(pickupTime).getTime();
+
+  if (pickupAt <= dropoffAt) return 'Pick-up time must be after drop-off time.';
+  if (dropoffAt < nowMs - 5 * 60_000) return 'Drop-off time cannot be in the past. Please choose a later time.';
+  const leadMs = leadHours * 3600_000;
+  if (leadMs > 0 && dropoffAt < nowMs + leadMs) {
+    return `Bookings must be made at least ${leadHours} hour(s) in advance.`;
+  }
+  return '';
+}
+
 function BookingWizard() {
   const router       = useRouter();
   const searchParams = useSearchParams();
@@ -74,6 +96,7 @@ function BookingWizard() {
   const [pickupId,      setPickupId]      = useState<string | null>(null);
   const [dropoffTime,   setDropoffTime]   = useState('');
   const [pickupTime,    setPickupTime]    = useState('');
+  const [timeError,     setTimeError]     = useState('');
   const [insuranceEnabled, setInsuranceEnabled] = useState(false);
 
   // ── Personal details ─────────────────────────────────────────
@@ -100,6 +123,7 @@ function BookingWizard() {
   const [otpError,      setOtpError]      = useState('');
   const [otpCooldown,   setOtpCooldown]   = useState(0);
   const [verifiedEmail, setVerifiedEmail] = useState('');
+  const [otpModalOpen,  setOtpModalOpen]  = useState(false);
 
   // ── UI state ─────────────────────────────────────────────────
   const [catalogLoading, setCatalogLoading] = useState(true);
@@ -254,11 +278,12 @@ function BookingWizard() {
 
   const emailRx = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-  const requestEmailOtp = async () => {
+  /** Returns whether the send actually succeeded, so callers can decide what to do next. */
+  const requestEmailOtp = async (): Promise<boolean> => {
     const trimmed = email.trim();
     if (!emailRx.test(trimmed)) {
       setEmailError('Please enter a valid email address (e.g. name@example.com).');
-      return;
+      return false;
     }
     setOtpLoading(true);
     setOtpError('');
@@ -273,22 +298,24 @@ function BookingWizard() {
         const msg = data?.error ?? 'We could not send a verification code. Please try again.';
         setOtpError(msg);
         notify.error(msg);
-        return;
+        return false;
       }
       setOtpRequestId(data.requestId);
       setOtpStage('sent');
       setOtpCooldown(60);
-      notify.success('We\'ve emailed you a 6-digit verification code.');
+      return true;
     } catch {
       const msg = 'We could not reach our servers. Check your connection and try again.';
       setOtpError(msg);
       notify.error(msg);
+      return false;
     } finally {
       setOtpLoading(false);
     }
   };
 
-  const verifyEmailOtp = async () => {
+  /** Verifies the code, then — since verification only ever happens from the modal, right before booking — proceeds straight to submission. */
+  const verifyEmailOtpAndContinue = async () => {
     if (!otpRequestId || otpCode.trim().length !== 6) return;
     setOtpLoading(true);
     setOtpError('');
@@ -307,7 +334,10 @@ function BookingWizard() {
       }
       setOtpStage('verified');
       setVerifiedEmail(email.trim());
+      setOtpModalOpen(false);
+      setOtpCode('');
       notify.success('Email verified.');
+      await submitBooking();
     } catch {
       const msg = 'We could not reach our servers. Check your connection and try again.';
       setOtpError(msg);
@@ -345,9 +375,6 @@ function BookingWizard() {
     if (!email.trim() || !emailRx.test(email.trim())) {
       setEmailError('Please enter a valid email address (e.g. name@example.com).');
       valid = false;
-    } else if (otpStage !== 'verified' || email.trim() !== verifiedEmail) {
-      setEmailError('Please verify your email address before continuing.');
-      valid = false;
     }
     if (!passportNo.trim() || passportNo.trim().length < 3) {
       setPassportError('Please enter your Passport / NIC number (at least 3 characters).');
@@ -361,21 +388,37 @@ function BookingWizard() {
     return valid;
   };
 
-  const handleStartBooking = async () => {
+  /**
+   * Entry point for the "Confirm & Continue" button. Validates the form,
+   * then either submits directly (email already verified for this exact
+   * address) or triggers a code send and opens the verify modal — the
+   * customer never has to notice/click a separate "send code" button.
+   */
+  const handleConfirmClick = async () => {
     setSubmitError('');
     if (!validatePersonalDetails()) {
       notify.error('Please fix the errors in your contact details before submitting.');
       return;
     }
-    if (!otpRequestId) {
-      setSubmitError('Please verify your email address before continuing.');
-      return;
-    }
-
     if (turnstileSiteKey && !turnstileToken) {
       const msg = 'Please complete the verification challenge below.';
       setSubmitError(msg);
       notify.error(msg);
+      return;
+    }
+
+    if (otpStage === 'verified' && email.trim() === verifiedEmail) {
+      await submitBooking();
+      return;
+    }
+
+    const sent = await requestEmailOtp();
+    if (sent) setOtpModalOpen(true);
+  };
+
+  const submitBooking = async () => {
+    if (!otpRequestId) {
+      setSubmitError('Please verify your email address before continuing.');
       return;
     }
 
@@ -624,16 +667,30 @@ function BookingWizard() {
                   <DateTimePicker
                     dropoffTime={dropoffTime}
                     pickupTime={pickupTime}
-                    onDropoffChange={setDropoffTime}
-                    onPickupChange={setPickupTime}
+                    onDropoffChange={(v) => { setDropoffTime(v); setTimeError(''); }}
+                    onPickupChange={(v) => { setPickupTime(v); setTimeError(''); }}
                   />
+                  {timeError && (
+                    <div
+                      role="alert"
+                      className="mt-4 p-3.5 rounded-xl bg-red-50 border border-red-200 flex items-start gap-2.5 text-xs font-bold text-red-800"
+                    >
+                      <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                      <span>{timeError}</span>
+                    </div>
+                  )}
                   <div className="mt-8 flex items-center justify-between gap-3">
                     <Button variant="secondary" size="md" onClick={() => prevStep(2)}>Back</Button>
                     <Button
                       variant="primary"
                       size="md"
-                      onClick={nextStep}
-                      disabled={!dropoffTime || !pickupTime || new Date(pickupTime) < new Date(dropoffTime)}
+                      onClick={() => {
+                        const err = computeTimeError(dropoffTime, pickupTime, settings.booking_lead_time_hours, Date.now());
+                        if (err) { setTimeError(err); return; }
+                        setTimeError('');
+                        nextStep();
+                      }}
+                      disabled={!dropoffTime || !pickupTime}
                     >
                       Enter Details →
                     </Button>
@@ -685,28 +742,14 @@ function BookingWizard() {
                             type="email"
                             placeholder="john@example.com"
                             value={email}
-                            disabled={otpStage === 'sent'}
                             onChange={(e) => handleEmailChange(e.target.value)}
-                            className={`flex-1 bg-slate-50 border rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none transition-all disabled:opacity-60 ${
+                            className={`flex-1 bg-slate-50 border rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none transition-all ${
                               emailError
                                 ? 'border-red-500 ring-2 ring-red-500/20'
                                 : 'border-slate-300 focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20'
                             }`}
                           />
-                          {otpStage !== 'verified' && (
-                            <Button
-                              type="button"
-                              variant="secondary"
-                              size="md"
-                              loading={otpLoading && otpStage !== 'sent'}
-                              disabled={otpStage === 'sent' || !email.trim()}
-                              onClick={requestEmailOtp}
-                              className="flex-shrink-0 whitespace-nowrap"
-                            >
-                              Send code
-                            </Button>
-                          )}
-                          {otpStage === 'verified' && (
+                          {otpStage === 'verified' && email.trim() === verifiedEmail && (
                             <span className="flex items-center gap-1.5 px-3 py-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex-shrink-0">
                               <ShieldCheck className="w-4 h-4" /> Verified
                             </span>
@@ -717,51 +760,9 @@ function BookingWizard() {
                             <AlertCircle className="w-3 h-3" /> {emailError}
                           </p>
                         )}
-
-                        {otpStage === 'sent' && (
-                          <div className="mt-3 p-4 bg-orange-50 border border-orange-200 rounded-xl">
-                            <label className="block text-xs font-bold uppercase tracking-wider text-orange-900 mb-2">
-                              Enter the 6-digit code we emailed you
-                            </label>
-                            <div className="flex gap-2">
-                              <input
-                                type="text"
-                                inputMode="numeric"
-                                autoComplete="one-time-code"
-                                maxLength={6}
-                                value={otpCode}
-                                onChange={(e) => { setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setOtpError(''); }}
-                                placeholder="123456"
-                                className="flex-1 bg-white border border-orange-300 rounded-xl px-4 py-3 text-lg font-black tracking-[0.4em] text-center text-slate-900 placeholder-slate-300 focus:outline-none focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20"
-                              />
-                              <Button
-                                type="button"
-                                variant="primary"
-                                size="md"
-                                loading={otpLoading}
-                                disabled={otpCode.length !== 6}
-                                onClick={verifyEmailOtp}
-                              >
-                                Verify
-                              </Button>
-                            </div>
-                            <div className="flex items-center justify-between mt-2">
-                              {otpError && (
-                                <p className="text-xs font-semibold text-red-600 flex items-center gap-1">
-                                  <AlertCircle className="w-3 h-3" /> {otpError}
-                                </p>
-                              )}
-                              <button
-                                type="button"
-                                onClick={requestEmailOtp}
-                                disabled={otpCooldown > 0 || otpLoading}
-                                className="text-xs font-bold text-orange-700 hover:text-orange-800 disabled:text-slate-300 disabled:cursor-not-allowed ml-auto"
-                              >
-                                {otpCooldown > 0 ? `Resend in ${otpCooldown}s` : 'Resend code'}
-                              </button>
-                            </div>
-                          </div>
-                        )}
+                        <p className="text-[11px] font-medium text-slate-400 mt-1.5">
+                          We&apos;ll email you a quick verification code when you continue.
+                        </p>
                       </div>
 
                       {/* WhatsApp */}
@@ -873,8 +874,8 @@ function BookingWizard() {
                     <Button
                       variant="primary"
                       size="md"
-                      onClick={handleStartBooking}
-                      loading={bookingLoading}
+                      onClick={handleConfirmClick}
+                      loading={bookingLoading || (otpLoading && !otpModalOpen)}
                     >
                       Confirm & Continue →
                     </Button>
@@ -902,6 +903,75 @@ function BookingWizard() {
           </div>
         </div>
       </main>
+
+      {otpModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="otp-modal-title"
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 sm:p-7 animate-fade-in">
+            <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mb-4">
+              <Mail className="w-6 h-6" />
+            </div>
+            <h2 id="otp-modal-title" className="text-lg font-bold text-slate-900 mb-1.5">
+              Verify your email
+            </h2>
+            <p className="text-sm font-medium text-slate-500 mb-5">
+              We&apos;ve sent a 6-digit code to <span className="font-bold text-slate-700">{email.trim()}</span>.
+              Enter it below to confirm your booking.
+            </p>
+
+            <input
+              type="text"
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              autoFocus
+              maxLength={6}
+              value={otpCode}
+              onChange={(e) => { setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6)); setOtpError(''); }}
+              onKeyDown={(e) => { if (e.key === 'Enter' && otpCode.length === 6) verifyEmailOtpAndContinue(); }}
+              placeholder="123456"
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-3.5 text-2xl font-black tracking-[0.5em] text-center text-slate-900 placeholder-slate-300 focus:outline-none focus:border-orange-600 focus:bg-white focus:ring-2 focus:ring-orange-600/20 transition-all"
+            />
+            {otpError && (
+              <p className="text-xs font-semibold text-red-600 mt-2 flex items-center gap-1">
+                <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" /> {otpError}
+              </p>
+            )}
+
+            <Button
+              variant="primary"
+              size="lg"
+              className="w-full mt-5"
+              loading={otpLoading}
+              disabled={otpCode.length !== 6}
+              onClick={verifyEmailOtpAndContinue}
+            >
+              Verify & Book →
+            </Button>
+
+            <div className="flex items-center justify-between mt-4">
+              <button
+                type="button"
+                onClick={() => { setOtpModalOpen(false); setOtpCode(''); setOtpError(''); }}
+                className="text-xs font-bold text-slate-500 hover:text-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={requestEmailOtp}
+                disabled={otpCooldown > 0 || otpLoading}
+                className="text-xs font-bold text-orange-700 hover:text-orange-800 disabled:text-slate-300 disabled:cursor-not-allowed"
+              >
+                {otpCooldown > 0 ? `Resend code in ${otpCooldown}s` : 'Resend code'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

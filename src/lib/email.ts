@@ -49,7 +49,28 @@ export function isEmailConfigured(): boolean {
   return isResendConfigured() || isSmtpConfigured();
 }
 
-const FROM_ADDRESS = process.env.EMAIL_FROM || 'Luggage Storage Colombo <onboarding@resend.dev>';
+/**
+ * Defensively normalizes EMAIL_FROM into "Name <email>" form. A raw env
+ * var like `Name email@domain` (angle brackets dropped by accident when
+ * pasting into Vercel) produces a From header no SMTP server can parse —
+ * caught once already, when Hostinger rejected every send with "Sender
+ * address rejected: not owned by user" because the address arrived with
+ * no `<>` around it at all. This can't fix a wrong email/name, only a
+ * malformed wrapper around a correct one.
+ */
+function normalizeFromAddress(raw: string): string {
+  const trimmed = raw.trim();
+  if (/<[^<>]+@[^<>]+>\s*$/.test(trimmed)) return trimmed; // already "Name <email>" or "<email>"
+  if (/^[^\s<>]+@[^\s<>]+$/.test(trimmed)) return trimmed; // bare email, no name — valid as-is
+
+  const match = trimmed.match(/([^\s<>]+@[^\s<>]+)/);
+  if (!match) return trimmed; // no email found at all — nothing we can safely reconstruct
+  const email = match[1];
+  const name = trimmed.slice(0, match.index).trim().replace(/["']/g, '');
+  return name ? `${name} <${email}>` : email;
+}
+
+const FROM_ADDRESS = normalizeFromAddress(process.env.EMAIL_FROM || 'Luggage Storage Colombo <onboarding@resend.dev>');
 
 let resendClient: Resend | null = null;
 function getResend(): Resend {
@@ -105,8 +126,10 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
         return { sent: true, provider: 'resend' };
       }
       console.error('[email] resend failed, trying backup:', error);
+      await logAttempt(input, 'resend', 'failed', typeof error === 'object' ? JSON.stringify(error) : String(error));
     } catch (e) {
       console.error('[email] resend threw, trying backup:', e);
+      await logAttempt(input, 'resend', 'failed', e instanceof Error ? e.message : String(e));
     }
   }
 
