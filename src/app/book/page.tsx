@@ -33,6 +33,9 @@ const FALLBACK_SETTINGS: PublicSettings = {
   usd_to_lkr_rate: DEFAULT_SETTINGS.usd_to_lkr_rate,
   support_phone: DEFAULT_SETTINGS.support_phone,
   support_whatsapp: DEFAULT_SETTINGS.support_whatsapp,
+  walkthrough_video_id: DEFAULT_SETTINGS.walkthrough_video_id,
+  hotel_location_label: DEFAULT_SETTINGS.hotel_location_label,
+  hotel_location_address: DEFAULT_SETTINGS.hotel_location_address,
 };
 
 const COUNTRY_OPTIONS: CountryOption[] = [
