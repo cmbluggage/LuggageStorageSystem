@@ -150,22 +150,22 @@ export function LandingPage() {
       </section>
 
       {/* ── Pricing (dynamic, from item_tiers) ─────────────── */}
-      <section id="pricing" className="bg-[#0a0a0a] py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
+      <section id="pricing" className="py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
         <div className="max-w-[1100px] mx-auto flex flex-col gap-7 items-center">
           <div className="flex flex-col gap-[14px] max-w-[660px] items-center">
             <p className="font-mono-ibm text-[#f09a55] text-[13px] tracking-[1.04px] text-center">PRICING</p>
-            <h2 className="font-extrabold text-white text-[32px] md:text-[44px] leading-[1.1] md:leading-[48.4px] tracking-[-1.32px] text-center">
+            <h2 className="font-extrabold text-[#0a0a0a] text-[32px] md:text-[44px] leading-[1.1] md:leading-[48.4px] tracking-[-1.32px] text-center">
               The longer you stay, the less you pay per day
             </h2>
-            <p className="text-[#a8a8a8] text-[16px] md:text-[17px] leading-[1.5] md:leading-[26.35px] text-center">
+            <p className="text-[#5a5a5a] text-[16px] md:text-[17px] leading-[1.5] md:leading-[26.35px] text-center">
               Priced per item, per day, taxes included. The longer the stay, the lower the daily rate.
             </p>
           </div>
 
-          <div className="bg-[#151515] border border-[#262626] rounded-[22px] w-full overflow-hidden">
-            <div className="hidden sm:grid grid-cols-[1.4fr_1fr_1fr] px-[34px] pt-[22px] pb-[23px] border-b border-[#262626]">
+          <div className="bg-[rgba(204,204,204,0.12)] border border-[rgba(38,38,38,0.17)] rounded-[22px] w-full overflow-hidden">
+            <div className="hidden sm:grid grid-cols-[1.4fr_1fr_1fr] px-[34px] pt-[22px] pb-[23px] border-b border-[rgba(38,38,38,0.2)]">
               <p className="font-mono-ibm text-[#8e8e8e] text-[14px] tracking-[0.84px]">ITEM</p>
-              <p className="font-bold text-white text-[24px] text-center tracking-[-0.48px]">Daily</p>
+              <p className="font-bold text-[#0a0a0a] text-[24px] text-center tracking-[-0.48px]">Daily</p>
               <p className="font-bold text-[#e8620a] text-[24px] text-center tracking-[-0.48px]">Weekly</p>
             </div>
 
@@ -174,20 +174,20 @@ export function LandingPage() {
                 {[1, 2, 3, 4].map((i) => (
                   <div
                     key={i}
-                    className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr_1fr] gap-3 sm:gap-0 px-[34px] py-[26px] border-b border-[#262626] last:border-b-0 animate-pulse"
+                    className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr_1fr] gap-3 sm:gap-0 px-[34px] py-[26px] border-b border-[rgba(38,38,38,0.2)] last:border-b-0 animate-pulse"
                   >
                     <div className="flex gap-4 items-center">
-                      <span className="rounded-xl size-[76px] shrink-0 bg-[#1f1f1f]" />
+                      <span className="rounded-xl size-[76px] shrink-0 bg-[#ece7e2]" />
                       <div className="flex flex-col gap-2">
-                        <span className="h-4 w-32 rounded bg-[#1f1f1f]" />
-                        <span className="h-3.5 w-44 rounded bg-[#1f1f1f]" />
+                        <span className="h-4 w-32 rounded bg-[#ece7e2]" />
+                        <span className="h-3.5 w-44 rounded bg-[#ece7e2]" />
                       </div>
                     </div>
                     <div className="flex items-center justify-center">
-                      <span className="h-8 w-16 rounded bg-[#1f1f1f]" />
+                      <span className="h-8 w-16 rounded bg-[#ece7e2]" />
                     </div>
                     <div className="flex items-center justify-center py-2.5">
-                      <span className="h-8 w-16 rounded bg-[#1f1f1f]" />
+                      <span className="h-8 w-16 rounded bg-[#ece7e2]" />
                     </div>
                   </div>
                 ))}
@@ -200,14 +200,14 @@ export function LandingPage() {
             {tiers?.map((tier, i) => (
               <div
                 key={tier.id}
-                className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr_1fr] gap-3 sm:gap-0 px-[34px] py-[26px] border-b border-[#262626] last:border-b-0"
+                className="grid grid-cols-1 sm:grid-cols-[1.4fr_1fr_1fr] gap-3 sm:gap-0 px-[34px] py-[26px] border-b border-[rgba(38,38,38,0.2)] last:border-b-0"
               >
                 <div className="flex gap-4 items-center">
-                  <span className="relative rounded-xl size-[76px] shrink-0 overflow-hidden bg-[#1f1f1f]">
+                  <span className="relative rounded-xl size-[76px] shrink-0 overflow-hidden bg-[#f3eee9]">
                     <Image src={TIER_IMAGES[i % TIER_IMAGES.length]} alt="" fill sizes="76px" className="object-cover" />
                   </span>
                   <div className="flex flex-col gap-1">
-                    <p className="font-bold text-white text-[19px] tracking-[-0.19px]">{tier.name}</p>
+                    <p className="font-bold text-[#0a0a0a] text-[19px] tracking-[-0.19px]">{tier.name}</p>
                     <p className="text-[#8e8e8e] text-[14px] leading-normal">
                       {tier.weight_spec && <>{tier.weight_spec} · </>}
                       {tier.supported_items}
@@ -215,12 +215,12 @@ export function LandingPage() {
                   </div>
                 </div>
                 <div className="flex flex-col items-center justify-center gap-0.5">
-                  <p className="font-extrabold text-white text-[30px] tracking-[-0.9px]">${tier.rate_daily_usd}</p>
+                  <p className="font-extrabold text-[#0a0a0a] text-[30px] tracking-[-0.9px]">${tier.rate_daily_usd}</p>
                   <p className="text-[#8e8e8e] text-[12px]">per day</p>
                 </div>
                 <div className="bg-[rgba(232,98,10,0.12)] rounded-xl flex flex-col items-center justify-center gap-0.5 py-2.5">
-                  <p className="font-extrabold text-[#f79a4e] text-[30px] tracking-[-0.9px]">${tier.rate_weekly_usd}</p>
-                  <p className="text-[#b08056] text-[12px]">per week</p>
+                  <p className="font-extrabold text-[#e8620a] text-[30px] tracking-[-0.9px]">${tier.rate_weekly_usd}</p>
+                  <p className="text-[#0a0a0a] text-[12px]">per week</p>
                 </div>
               </div>
             ))}
