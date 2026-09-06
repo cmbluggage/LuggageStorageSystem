@@ -4,10 +4,11 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plane, ShieldCheck, Wallet, Lock, CalendarClock, Clock, MapPinned, PlaneTakeoff, CreditCard } from 'lucide-react';
+import { Plane, ShieldCheck, Wallet, Lock, CalendarClock, Clock, MapPinned, PlaneTakeoff, CreditCard, Play, MapPin } from 'lucide-react';
 import type { ItemTier } from '@/components/booking/ItemSelector';
 import { DEFAULT_SETTINGS, type PublicSettings } from '@/lib/settings';
 import { SiteHeader } from '@/components/ui/SiteHeader';
+import { notify } from '@/lib/toast';
 
 const TIER_IMAGES = ['/landing/item-small.png', '/landing/item-medium.png', '/landing/item-large.png', '/landing/item-odd.png'];
 
@@ -43,6 +44,10 @@ export function LandingPage() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [tiers, setTiers] = useState<ItemTier[] | null>(null);
   const [whatsapp, setWhatsapp] = useState(DEFAULT_SETTINGS.support_whatsapp);
+  const [videoId, setVideoId] = useState(DEFAULT_SETTINGS.walkthrough_video_id);
+  const [videoPlaying, setVideoPlaying] = useState(false);
+  const [hotelLabel, setHotelLabel] = useState(DEFAULT_SETTINGS.hotel_location_label);
+  const [hotelAddress, setHotelAddress] = useState(DEFAULT_SETTINGS.hotel_location_address);
 
   useEffect(() => {
     fetch('/api/item-tiers')
@@ -53,7 +58,12 @@ export function LandingPage() {
     fetch('/api/settings')
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data) => {
-        if (data?.settings?.support_whatsapp) setWhatsapp(data.settings.support_whatsapp);
+        const settings = data?.settings;
+        if (!settings) return;
+        if (settings.support_whatsapp) setWhatsapp(settings.support_whatsapp);
+        if (typeof settings.walkthrough_video_id === 'string') setVideoId(settings.walkthrough_video_id);
+        if (settings.hotel_location_label) setHotelLabel(settings.hotel_location_label);
+        if (settings.hotel_location_address) setHotelAddress(settings.hotel_location_address);
       })
       .catch(() => {});
   }, []);
@@ -136,77 +146,6 @@ export function LandingPage() {
           </div>
 
           <p className="text-[#8a8a8a] text-[14px] text-center">Open 24/7 · Cheapest Price in Sri Lanka · No booking fee</p>
-        </div>
-      </section>
-
-      {/* ── Services ───────────────────────────────────────── */}
-      <section id="services" className="bg-[#faf8f6] py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
-        <div className="max-w-[1100px] mx-auto flex flex-col gap-[52px]">
-          <div className="flex flex-col gap-[14px] max-w-[640px]">
-            <p className="font-mono-ibm text-[#e8620a] text-[13px] tracking-[1.04px]">OUR SERVICES</p>
-            <h2 className="font-extrabold text-[#0a0a0a] text-[32px] md:text-[44px] leading-[1.1] md:leading-[48.4px] tracking-[-1.32px]">
-              Everything you need between two flights
-            </h2>
-            <p className="text-[#5a5a5a] text-[16px] md:text-[17px] leading-[1.5] md:leading-[26.35px]">
-              One place, 6 services. Leave your bags with us and get on with the trip.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {[
-              { title: 'Secure Storage Facility', body: 'Daily storage for layovers, late checkouts and early arrivals. Any size, from a daypack to a surfboard.', Icon: Lock },
-              { title: 'Long-Term Storage', body: 'Weekly rates for expats, digital nomads and anyone island-hopping light for a while. Store your luggage for as long as you need.', Icon: CalendarClock },
-              { title: 'Secure 24/7 Access', body: 'Our facility is directly managed by us, with no third-party involvement. Drop off and collect your luggage anytime to fit your travel plans.', Icon: Clock },
-              { title: 'Convenient Airport Location', body: "Just 2 km from the airport, making it a quick 5–10 minute trip. A convenient stop whether you're arriving, departing or between transiting.", Icon: MapPinned },
-              { title: 'Airport Pickup & Delivery', body: 'We can meet you at Arrivals or bring your bags back to Departures in time for your flight. Pickup and delivery are available for a small fee.', Icon: PlaneTakeoff },
-              { title: 'Flexible Payment Options', body: 'Pay conveniently using foreign, local currencies or secure card payments.', Icon: CreditCard },
-            ].map(({ title, body, Icon }) => (
-              <div
-                key={title}
-                className="group bg-white border border-[#ede8e3] flex flex-col gap-2 p-[31px] rounded-[18px] transition-all duration-300 hover:border-[#e8620a]/40 hover:shadow-[0_12px_32px_-12px_rgba(232,98,10,0.25)] hover:-translate-y-1"
-              >
-                <span className="bg-[#fdf0e6] flex items-center justify-center rounded-xl size-11 transition-all duration-300 group-hover:bg-[#e8620a] group-hover:scale-110">
-                  <Icon className="w-5 h-5 text-[#e8620a] transition-colors duration-300 group-hover:text-white" strokeWidth={2.25} />
-                </span>
-                <h3 className="pt-3 font-bold text-[#0a0a0a] text-[20px] tracking-[-0.4px]">{title}</h3>
-                <p className="text-[#5f5f5f] text-[15px] leading-[24px]">{body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── How it works ───────────────────────────────────── */}
-      <section className="py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
-        <div className="max-w-[1100px] mx-auto flex flex-col gap-12">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-            <div className="flex flex-col gap-[14px] max-w-[560px]">
-              <p className="font-mono-ibm text-[#e8620a] text-[13px] tracking-[1.04px]">HOW IT WORKS</p>
-              <h2 className="font-extrabold text-[#0a0a0a] text-[32px] md:text-[44px] leading-[1.1] md:leading-[48.4px] tracking-[-1.32px]">
-                Bags down in under two minutes
-              </h2>
-            </div>
-            <button
-              onClick={goBook}
-              className="self-start bg-[#0a0a0a] hover:bg-black transition-colors px-[30px] py-4 rounded-[100px] font-bold text-[16px] text-white whitespace-nowrap"
-            >
-              Start a booking
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-5">
-            {[
-              { n: '01', border: 'border-[#0a0a0a]', num: 'text-[#9a9a9a]', title: 'Book online', body: 'Pick a date, number of bags and duration. You get a confirmation by email instantly' },
-              { n: '02', border: 'border-[#0a0a0a]', num: 'text-[#9a9a9a]', title: 'Drop at the designated drop-off location', body: 'Drop off your luggage at Hotel Thilon for free, or at Colombo Airport for a nominal additional fee.' },
-              { n: '03', border: 'border-[#e8620a]', num: 'text-[#e8620a]', title: 'Collect when you fly', body: "Let us know your departure flight in advance, and we’ll meet you at the airport with your luggage - or you can collect it directly from Hotel Thilon." },
-            ].map((step) => (
-              <div key={step.n} className={`border-t-[3px] ${step.border} flex flex-col gap-[10px] pt-[27px]`}>
-                <p className={`font-mono-ibm text-[13px] ${step.num}`}>{step.n}</p>
-                <h3 className="font-bold text-[#0a0a0a] text-[22px] tracking-[-0.44px]">{step.title}</h3>
-                <p className="text-[#5f5f5f] text-[16px] leading-[25.6px]">{step.body}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </section>
 
@@ -302,6 +241,77 @@ export function LandingPage() {
         </div>
       </section>
 
+      {/* ── How it works ───────────────────────────────────── */}
+      <section className="py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
+        <div className="max-w-[1100px] mx-auto flex flex-col gap-12">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+            <div className="flex flex-col gap-[14px] max-w-[560px]">
+              <p className="font-mono-ibm text-[#e8620a] text-[13px] tracking-[1.04px]">HOW IT WORKS</p>
+              <h2 className="font-extrabold text-[#0a0a0a] text-[32px] md:text-[44px] leading-[1.1] md:leading-[48.4px] tracking-[-1.32px]">
+                Bags down in under two minutes
+              </h2>
+            </div>
+            <button
+              onClick={goBook}
+              className="self-start bg-[#0a0a0a] hover:bg-black transition-colors px-[30px] py-4 rounded-[100px] font-bold text-[16px] text-white whitespace-nowrap"
+            >
+              Start a booking
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-5">
+            {[
+              { n: '01', border: 'border-[#0a0a0a]', num: 'text-[#9a9a9a]', title: 'Book online', body: 'Pick a date, number of bags and duration. You get a confirmation by email instantly' },
+              { n: '02', border: 'border-[#0a0a0a]', num: 'text-[#9a9a9a]', title: 'Drop at the designated drop-off location', body: 'Drop off your luggage at Hotel Thilon for free, or at Colombo Airport for a nominal additional fee.' },
+              { n: '03', border: 'border-[#e8620a]', num: 'text-[#e8620a]', title: 'Collect when you fly', body: "Let us know your departure flight in advance, and we’ll meet you at the airport with your luggage - or you can collect it directly from Hotel Thilon." },
+            ].map((step) => (
+              <div key={step.n} className={`border-t-[3px] ${step.border} flex flex-col gap-[10px] pt-[27px]`}>
+                <p className={`font-mono-ibm text-[13px] ${step.num}`}>{step.n}</p>
+                <h3 className="font-bold text-[#0a0a0a] text-[22px] tracking-[-0.44px]">{step.title}</h3>
+                <p className="text-[#5f5f5f] text-[16px] leading-[25.6px]">{step.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Services ───────────────────────────────────────── */}
+      <section id="services" className="bg-[#faf8f6] py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
+        <div className="max-w-[1100px] mx-auto flex flex-col gap-[52px]">
+          <div className="flex flex-col gap-[14px] max-w-[640px]">
+            <p className="font-mono-ibm text-[#e8620a] text-[13px] tracking-[1.04px]">OUR SERVICES</p>
+            <h2 className="font-extrabold text-[#0a0a0a] text-[32px] md:text-[44px] leading-[1.1] md:leading-[48.4px] tracking-[-1.32px]">
+              Everything you need between two flights
+            </h2>
+            <p className="text-[#5a5a5a] text-[16px] md:text-[17px] leading-[1.5] md:leading-[26.35px]">
+              One place, 6 services. Leave your bags with us and get on with the trip.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[
+              { title: 'Secure Storage Facility', body: 'Daily storage for layovers, late checkouts and early arrivals. Any size, from a daypack to a surfboard.', Icon: Lock },
+              { title: 'Long-Term Storage', body: 'Weekly rates for expats, digital nomads and anyone island-hopping light for a while. Store your luggage for as long as you need.', Icon: CalendarClock },
+              { title: 'Secure 24/7 Access', body: 'Our facility is directly managed by us, with no third-party involvement. Drop off and collect your luggage anytime to fit your travel plans.', Icon: Clock },
+              { title: 'Convenient Airport Location', body: "Just 2 km from the airport, making it a quick 5–10 minute trip. A convenient stop whether you're arriving, departing or between transiting.", Icon: MapPinned },
+              { title: 'Airport Pickup & Delivery', body: 'We can meet you at Arrivals or bring your bags back to Departures in time for your flight. Pickup and delivery are available for a small fee.', Icon: PlaneTakeoff },
+              { title: 'Flexible Payment Options', body: 'Pay conveniently using foreign, local currencies or secure card payments.', Icon: CreditCard },
+            ].map(({ title, body, Icon }) => (
+              <div
+                key={title}
+                className="group bg-white border border-[#ede8e3] flex flex-col gap-2 p-[31px] rounded-[18px] transition-all duration-300 hover:border-[#e8620a]/40 hover:shadow-[0_12px_32px_-12px_rgba(232,98,10,0.25)] hover:-translate-y-1"
+              >
+                <span className="bg-[#fdf0e6] flex items-center justify-center rounded-xl size-11 transition-all duration-300 group-hover:bg-[#e8620a] group-hover:scale-110">
+                  <Icon className="w-5 h-5 text-[#e8620a] transition-colors duration-300 group-hover:text-white" strokeWidth={2.25} />
+                </span>
+                <h3 className="pt-3 font-bold text-[#0a0a0a] text-[20px] tracking-[-0.4px]">{title}</h3>
+                <p className="text-[#5f5f5f] text-[15px] leading-[24px]">{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Locations ──────────────────────────────────────── */}
       <section className="py-16 md:py-24 px-6 md:px-10 lg:px-14 xl:px-20 2xl:px-28">
         <div className="max-w-[1100px] mx-auto flex flex-col gap-11">
@@ -318,14 +328,43 @@ export function LandingPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white border border-[#ede8e3] rounded-[22px] overflow-hidden">
-              <div className="relative h-[220px] md:h-[300px] bg-[#0a0a0a] flex items-center justify-center">
-                <span className="absolute left-4 top-4 bg-black/75 flex gap-2 items-center px-[13px] py-[7px] rounded-full">
-                  <span className="bg-[#e8620a] rounded-full size-[7px]" />
-                  <span className="font-bold text-[12px] text-white tracking-[0.72px]">WALKTHROUGH VIDEO</span>
-                </span>
-                <span className="bg-[#e8620a] flex items-center justify-center rounded-full size-16">
-                  <span className="border-t-[11px] border-b-[11px] border-l-[18px] border-t-transparent border-b-transparent border-l-white ml-1" />
-                </span>
+              <div className="relative h-[220px] md:h-[300px] bg-[#0a0a0a] flex items-center justify-center overflow-hidden">
+                {videoPlaying && videoId ? (
+                  <iframe
+                    className="absolute inset-0 size-full"
+                    src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&rel=0`}
+                    title="Colombo Airport Drop-Off & Pickup walkthrough"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <>
+                    {videoId && (
+                      <Image
+                        src={`https://img.youtube.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`}
+                        alt=""
+                        fill
+                        sizes="(min-width: 1024px) 50vw, 100vw"
+                        className="object-cover opacity-70"
+                      />
+                    )}
+                    <span className="absolute left-4 top-4 bg-black/75 flex gap-2 items-center px-[13px] py-[7px] rounded-full">
+                      <span className="bg-[#e8620a] rounded-full size-[7px]" />
+                      <span className="font-bold text-[12px] text-white tracking-[0.72px]">WALKTHROUGH VIDEO</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (videoId) setVideoPlaying(true);
+                        else notify.info('The walkthrough video is coming soon.');
+                      }}
+                      aria-label="Play walkthrough video"
+                      className="relative bg-[#e8620a] hover:bg-[#d1560a] transition-colors flex items-center justify-center rounded-full size-16"
+                    >
+                      <Play className="w-6 h-6 text-white fill-white ml-1" />
+                    </button>
+                  </>
+                )}
               </div>
               <div className="flex flex-col gap-2 px-6 md:px-[30px] py-7">
                 <h3 className="font-bold text-[#0a0a0a] text-[22px] tracking-[-0.44px]">Colombo Airport Drop-Off &amp; Pickup</h3>
@@ -341,13 +380,20 @@ export function LandingPage() {
 
             <div className="bg-white border border-[#ede8e3] rounded-[22px] overflow-hidden">
               <div className="relative h-[220px] md:h-[300px] bg-[#f7f5f3]">
-                <span className="absolute right-4 top-4 bg-[#0a0a0a] flex gap-1.5 items-center pl-2 pr-3.5 py-1 rounded-full shadow-lg">
-                  <span className="bg-[#e8620a] rounded-tl-[3.5px] rounded-tr-[3.5px] rounded-br-[3.5px] rotate-45 size-3.5" />
-                  <span className="font-bold text-[12px] text-white">Hotel Thilon</span>
+                <iframe
+                  className="absolute inset-0 size-full border-0"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title={`Map showing ${hotelLabel}`}
+                  src={`https://www.google.com/maps?q=${encodeURIComponent(hotelAddress)}&output=embed`}
+                />
+                <span className="absolute right-4 top-4 bg-[#0a0a0a] flex gap-1.5 items-center pl-2 pr-3.5 py-1 rounded-full shadow-lg pointer-events-none">
+                  <MapPin className="w-3.5 h-3.5 text-[#e8620a] fill-[#e8620a]" />
+                  <span className="font-bold text-[12px] text-white">{hotelLabel}</span>
                 </span>
               </div>
               <div className="flex flex-col gap-2 px-6 md:px-[30px] py-7">
-                <h3 className="font-bold text-[#0a0a0a] text-[22px] tracking-[-0.44px]">Hotel Thilon</h3>
+                <h3 className="font-bold text-[#0a0a0a] text-[22px] tracking-[-0.44px]">{hotelLabel}</h3>
                 <p className="text-[#5f5f5f] text-[16px] leading-[25.6px]">
                   Our partner desk in the hotel lobby, a 5-minute drive from the airport. Best if you&rsquo;re on a long layover. Store the bags, take a shower and a meal, then head back.
                 </p>

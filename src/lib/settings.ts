@@ -31,6 +31,9 @@ export interface AppSettings {
   turnstile_enabled: boolean;
   booking_rate_limit: number;
   ops_window_hours: number;
+  walkthrough_video_id: string;
+  hotel_location_label: string;
+  hotel_location_address: string;
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
@@ -51,6 +54,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   turnstile_enabled: false,
   booking_rate_limit: 10,
   ops_window_hours: 48,
+  walkthrough_video_id: '',
+  hotel_location_label: 'Hotel Thilon',
+  hotel_location_address: 'Hotel Thilon, Katunayake, Sri Lanka',
 };
 
 export const DEFAULT_SETTING_METADATA: Record<
@@ -186,6 +192,25 @@ export const DEFAULT_SETTING_METADATA: Record<
     min_value: 1,
     max_value: 720,
   },
+  walkthrough_video_id: {
+    label: 'Walkthrough Video (YouTube ID)',
+    description:
+      'YouTube video ID for the "Colombo Airport Drop-Off & Pickup" walkthrough clip on the landing page. Upload as Unlisted on YouTube and paste just the ID (the part after v= in the URL, e.g. dQw4w9WgXcQ). Leave blank to show the placeholder card instead.',
+    category: 'content',
+    value_type: 'string',
+  },
+  hotel_location_label: {
+    label: 'Hotel Partner Name',
+    description: "Name shown on the landing page's second location card and its map pin badge.",
+    category: 'content',
+    value_type: 'string',
+  },
+  hotel_location_address: {
+    label: 'Hotel Partner Address',
+    description: "Address or place name used to center the embedded map on the landing page's Hotel Thilon card.",
+    category: 'content',
+    value_type: 'string',
+  },
 };
 
 export function getDefaultSettingRows() {
@@ -288,6 +313,9 @@ export type PublicSettings = Pick<
   | 'usd_to_lkr_rate'
   | 'support_phone'
   | 'support_whatsapp'
+  | 'walkthrough_video_id'
+  | 'hotel_location_label'
+  | 'hotel_location_address'
 >;
 
 export function toPublicSettings(s: AppSettings): PublicSettings {
@@ -305,5 +333,8 @@ export function toPublicSettings(s: AppSettings): PublicSettings {
     usd_to_lkr_rate: s.usd_to_lkr_rate,
     support_phone: s.support_phone,
     support_whatsapp: s.support_whatsapp,
+    walkthrough_video_id: s.walkthrough_video_id,
+    hotel_location_label: s.hotel_location_label,
+    hotel_location_address: s.hotel_location_address,
   };
 }

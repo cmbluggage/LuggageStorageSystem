@@ -21,9 +21,13 @@ import { RotateCcw } from 'lucide-react';
  * it appear here with no UI change.
  */
 
-const CATEGORY_ORDER = ['insurance', 'pricing', 'limits', 'currency', 'operations', 'support', 'security'];
+const CATEGORY_ORDER = ['content', 'insurance', 'pricing', 'limits', 'currency', 'operations', 'support', 'security'];
 
 const CATEGORY_COPY: Record<string, { title: string; description: string }> = {
+  content: {
+    title: 'Landing Page Content',
+    description: "The walkthrough video and Hotel Thilon partner details shown on the public landing page's Locations section.",
+  },
   insurance: {
     title: 'Insurance',
     description:

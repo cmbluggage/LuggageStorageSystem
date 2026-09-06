@@ -18,7 +18,9 @@ const csp = [
   "font-src 'self' https://fonts.gstatic.com data:",
   "img-src 'self' data: blob: https:",
   "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com",
-  "frame-src https://challenges.cloudflare.com",
+  // The landing page's Locations section embeds an admin-configurable
+  // YouTube walkthrough video and a Google Maps location — both iframes.
+  "frame-src https://challenges.cloudflare.com https://www.youtube-nocookie.com https://www.google.com",
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
@@ -48,6 +50,12 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+
+  images: {
+    // The landing page's walkthrough-video poster uses the YouTube thumbnail
+    // for whichever video id the admin has configured (src/lib/settings.ts).
+    remotePatterns: [{ protocol: 'https', hostname: 'img.youtube.com' }],
+  },
 
   async headers() {
     return [
