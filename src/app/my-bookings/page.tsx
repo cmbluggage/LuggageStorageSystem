@@ -296,7 +296,7 @@ export default function MyBookingsPage() {
                 <ShieldCheck className="w-4 h-4" /> Verify &amp; view bookings
               </Button>
             </div>
-            <p className="text-[11px] font-medium text-slate-400 mt-3 text-center">
+            <p className="text-sm font-medium text-slate-500 mt-3 text-center">
               Don&apos;t see it? Check your spam or junk folder.
             </p>
           </form>

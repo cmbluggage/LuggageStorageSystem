@@ -220,7 +220,7 @@ export function LandingPage() {
                 </div>
                 <div className="bg-[rgba(232,98,10,0.12)] rounded-xl flex flex-col items-center justify-center gap-0.5 py-2.5">
                   <p className="font-extrabold text-[#e8620a] text-[30px] tracking-[-0.9px]">${tier.rate_weekly_usd}</p>
-                  <p className="text-[#0a0a0a] text-[12px]">per week</p>
+                  <p className="text-[#0a0a0a] text-[12px]">per day, after 7 days</p>
                 </div>
               </div>
             ))}
