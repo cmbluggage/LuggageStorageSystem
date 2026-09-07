@@ -184,8 +184,17 @@ export async function POST(req: Request) {
       idempotencyKey: input.idempotencyKey,
     });
 
-    // Best-effort — a failed send must never fail the booking itself.
-    sendBookingConfirmedEmail(record).catch((e) => console.error('[bookings.POST] confirmation email failed:', e));
+    // Cash bookings are confirmed the moment the customer submits — there's
+    // no payment step here, cash is collected in person later. Card
+    // bookings are NOT confirmed by email yet: nothing has been paid, so
+    // sending "booking confirmed" now would go out before the charge even
+    // exists. That email instead fires when the payment actually succeeds
+    // (Stripe webhook, or the dev-fallback settle) — see markStripePaymentSucceeded
+    // / updateBookingPayment in db.ts and their callers.
+    if (record.paymentMethod === 'cash') {
+      // Best-effort — a failed send must never fail the booking itself.
+      sendBookingConfirmedEmail(record).catch((e) => console.error('[bookings.POST] confirmation email failed:', e));
+    }
 
     return ok({ bookingId: record.id, booking: record, breakdown }, NO_STORE);
   } catch (err) {

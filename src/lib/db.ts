@@ -414,6 +414,32 @@ export interface RecordPaymentInput {
 }
 
 /**
+ * Whether a booking already has at least one succeeded payment on the
+ * ledger. Used to tell a card booking's *first* successful payment (which
+ * should send the "booking confirmed" email — it's the customer's first
+ * confirmation, since card bookings don't send one at creation) apart from
+ * a later top-up/extension payment (which should send "payment received"
+ * instead). Fails safe: a lookup error is treated as "yes, a payment
+ * already exists" so a transient DB hiccup can never cause a duplicate
+ * booking-confirmed email.
+ */
+async function hasSucceededPayment(
+  supabase: ReturnType<typeof createAdminClient>,
+  bookingId: string,
+): Promise<boolean> {
+  const { count, error } = await supabase
+    .from('payments')
+    .select('id', { count: 'exact', head: true })
+    .eq('booking_id', bookingId)
+    .eq('status', 'succeeded');
+  if (error) {
+    console.error('[db.hasSucceededPayment] lookup failed:', error);
+    return true;
+  }
+  return (count ?? 0) > 0;
+}
+
+/**
  * Insert a payment ledger row and, when it settles, refresh the booking's
  * cached `payment_status` from the ledger.
  *
@@ -493,13 +519,14 @@ export async function createPendingStripePayment(
 /**
  * Called from the Stripe webhook when a Checkout Session completes.
  * Idempotent: a replayed webhook for an already-succeeded session is a
- * no-op, not an error. Returns null for a session id this app never
- * created (the webhook handler 200s regardless — nothing to retry).
+ * no-op (emailToSend: null — a retried webhook must never re-send a
+ * lifecycle email), not an error. Returns null for a session id this app
+ * never created (the webhook handler 200s regardless — nothing to retry).
  */
 export async function markStripePaymentSucceeded(
   stripeSessionId: string,
   stripePaymentIntentId?: string,
-): Promise<BookingRecord | null> {
+): Promise<PaymentSettleResult | null> {
   const supabase = createAdminClient();
 
   const { data: existing, error: readErr } = await supabase
@@ -513,7 +540,13 @@ export async function markStripePaymentSucceeded(
     throw serverError('We could not confirm that payment.');
   }
   if (!existing) return null;
-  if (existing.status === 'succeeded') return getBookingById(existing.booking_id);
+  if (existing.status === 'succeeded') {
+    const booking = await getBookingById(existing.booking_id);
+    return booking ? { booking, emailToSend: null } : null;
+  }
+
+  // Snapshot before marking this row succeeded, so it doesn't count itself.
+  const hadPriorPayment = await hasSucceededPayment(supabase, existing.booking_id);
 
   const { error: updateErr } = await supabase
     .from('payments')
@@ -528,7 +561,7 @@ export async function markStripePaymentSucceeded(
   if (updated) {
     await supabase.from('bookings').update({ payment_status: updated.paymentStatus } as never).eq('id', existing.booking_id);
   }
-  return updated;
+  return updated ? { booking: updated, emailToSend: hadPriorPayment ? 'payment_received' : 'confirmed' } : null;
 }
 
 /** Called from the webhook when a Checkout Session expires or its payment fails. */
@@ -561,11 +594,24 @@ export async function markStripePaymentFailed(stripeSessionId: string): Promise<
  * calling it with `stripe` at that point is a client bug, not a payment
  * method to silently fall back on.
  */
+export interface PaymentSettleResult {
+  booking: BookingRecord;
+  /**
+   * Which lifecycle email (if any) the route handler should send.
+   * 'confirmed' — this card payment is the booking's first, so it's also
+   * this customer's first confirmation email (card bookings send none at
+   * creation — see saveBooking). 'payment_received' — a later top-up or
+   * extension payment on an already-confirmed booking. null — no money
+   * actually moved (e.g. just recording a cash preference).
+   */
+  emailToSend: 'confirmed' | 'payment_received' | null;
+}
+
 export async function updateBookingPayment(
   id: string,
   requestedMethod: PaymentMethodApi,
   requestedStatus: PaymentStatus,
-): Promise<BookingRecord> {
+): Promise<PaymentSettleResult> {
   const supabase = createAdminClient();
 
   const { data: current, error: readErr } = await supabase
@@ -596,7 +642,9 @@ export async function updateBookingPayment(
     if (isStripeConfigured()) {
       throw badRequest('Card payments are handled by the secure checkout flow. Use /api/bookings/[id]/checkout.');
     }
-    return recordPayment({ bookingId: id, amountUsd: Number(row.grand_total_usd ?? 0), method: 'stripe' });
+    const hadPriorPayment = await hasSucceededPayment(supabase, id);
+    const booking = await recordPayment({ bookingId: id, amountUsd: Number(row.grand_total_usd ?? 0), method: 'stripe' });
+    return { booking, emailToSend: hadPriorPayment ? 'payment_received' : 'confirmed' };
   }
 
   const { error: updateErr } = await supabase
@@ -611,7 +659,7 @@ export async function updateBookingPayment(
 
   const updated = await getBookingById(id);
   if (!updated) throw notFound('Booking not found.');
-  return updated;
+  return { booking: updated, emailToSend: null };
 }
 
 /**

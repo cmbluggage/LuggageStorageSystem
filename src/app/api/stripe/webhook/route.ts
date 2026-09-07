@@ -1,6 +1,6 @@
 import { markStripePaymentSucceeded, markStripePaymentFailed } from '@/lib/db';
 import { constructWebhookEvent, isStripeConfigured } from '@/lib/stripe';
-import { sendPaymentReceivedEmail } from '@/lib/email';
+import { sendBookingConfirmedEmail, sendPaymentReceivedEmail } from '@/lib/email';
 import { badRequest, fail, ok, serverError } from '@/lib/api/http';
 import type Stripe from 'stripe';
 
@@ -42,12 +42,18 @@ export async function POST(req: Request) {
         const session = event.data.object as Stripe.Checkout.Session;
         if (session.payment_status !== 'paid') break;
 
-        const updated = await markStripePaymentSucceeded(
+        const result = await markStripePaymentSucceeded(
           session.id,
           typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id,
         );
-        if (updated) {
-          await sendPaymentReceivedEmail(updated).catch((e) =>
+        // emailToSend is null for a replayed webhook (already-succeeded
+        // session) — must never re-send a lifecycle email on a retry.
+        if (result?.emailToSend === 'confirmed') {
+          await sendBookingConfirmedEmail(result.booking).catch((e) =>
+            console.error('[stripe.webhook] booking-confirmed email failed:', e),
+          );
+        } else if (result?.emailToSend === 'payment_received') {
+          await sendPaymentReceivedEmail(result.booking).catch((e) =>
             console.error('[stripe.webhook] payment-received email failed:', e),
           );
         }

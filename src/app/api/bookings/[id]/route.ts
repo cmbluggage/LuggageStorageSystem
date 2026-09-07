@@ -2,6 +2,7 @@ import { getBookingById, updateBookingPayment } from '@/lib/db';
 import { parseBody, updatePaymentSchema, idSchema } from '@/lib/validation/schemas';
 import { badRequest, clientIp, fail, notFound, ok, tooManyRequests, NO_STORE } from '@/lib/api/http';
 import { rateLimit } from '@/lib/security/rateLimit';
+import { sendBookingConfirmedEmail, sendPaymentReceivedEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,7 +51,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     const { paymentMethod, paymentStatus } = await parseBody(req, updatePaymentSchema);
-    const booking = await updateBookingPayment(id, paymentMethod, paymentStatus);
+    const { booking, emailToSend } = await updateBookingPayment(id, paymentMethod, paymentStatus);
+
+    // Best-effort — a failed send must never fail the payment itself.
+    if (emailToSend === 'confirmed') {
+      sendBookingConfirmedEmail(booking).catch((e) => console.error('[bookings.[id].PATCH] booking-confirmed email failed:', e));
+    } else if (emailToSend === 'payment_received') {
+      sendPaymentReceivedEmail(booking).catch((e) => console.error('[bookings.[id].PATCH] payment-received email failed:', e));
+    }
 
     const { passportNo, cashCollectedByName, ...safe } = booking;
     void passportNo;
