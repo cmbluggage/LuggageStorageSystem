@@ -496,7 +496,7 @@ function TaskRow({
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-xs mb-4">
             <Detail icon={<Phone className="w-3.5 h-3.5" />} label="Phone" value={booking.phone} mono />
             <Detail icon={<User className="w-3.5 h-3.5" />} label="Reference" value={bookingRef(booking.id)} title={booking.id} mono />
-            <Detail icon={<FileText className="w-3.5 h-3.5" />} label="Passport / NIC" value={booking.passportNo || '—'} mono />
+            <Detail icon={<FileText className="w-3.5 h-3.5" />} label="Passport Number" value={booking.passportNo || '—'} mono />
             <Detail icon={<Plane className="w-3.5 h-3.5" />} label="Flight #" value={booking.flightNumber || '—'} />
             <Detail
               icon={<Shield className="w-3.5 h-3.5" />}
@@ -617,7 +617,7 @@ function SearchResultRow({
         <div className="px-4 pb-4 pt-1 border-t border-slate-100">
           <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2.5 text-xs mb-4 mt-3">
             <Detail icon={<User className="w-3.5 h-3.5" />} label="Reference" value={bookingRef(booking.id)} title={booking.id} mono />
-            <Detail icon={<FileText className="w-3.5 h-3.5" />} label="Passport / NIC" value={booking.passportNo || '—'} mono />
+            <Detail icon={<FileText className="w-3.5 h-3.5" />} label="Passport Number" value={booking.passportNo || '—'} mono />
             <Detail icon={<Plane className="w-3.5 h-3.5" />} label="Flight #" value={booking.flightNumber || '—'} />
             <Detail icon={<Box className="w-3.5 h-3.5" />} label="Drop-off" value={`${booking.dropoffLocationName} · ${new Date(booking.dropoffTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`} />
             <Detail icon={<MapPin className="w-3.5 h-3.5" />} label="Pick-up" value={`${booking.pickupLocationName} · ${new Date(booking.pickupTime).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}`} />

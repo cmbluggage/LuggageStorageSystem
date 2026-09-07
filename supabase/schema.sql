@@ -659,6 +659,22 @@ insert into public.app_settings (key, value, value_type, label, description, cat
 on conflict (key) do nothing;
 
 -- ================================================================
+-- Migration 010 — Direction-aware location display names
+--
+-- Client requirement, 2026-09: the booking flow's location picker should
+-- show a direction-specific label for each site (e.g. "CMB Airport Drop
+-- Off Location" vs "CMB Airport Pickup Location") instead of the same
+-- base name in both the drop-off and pick-up pickers.
+-- ================================================================
+
+alter table public.locations
+  add column if not exists dropoff_display_name text,
+  add column if not exists pickup_display_name  text;
+
+comment on column public.locations.dropoff_display_name is 'Optional label shown for this location in the booking flow''s drop-off picker only. Falls back to name when null.';
+comment on column public.locations.pickup_display_name  is 'Optional label shown for this location in the booking flow''s pick-up picker only. Falls back to name when null.';
+
+-- ================================================================
 -- END OF CONSOLIDATED SCHEMA
 -- Next: run seed_catalog.sql, then seed_accounts.sql,
 -- then (optionally, dev only) seed_demo_data.sql.

@@ -26,6 +26,8 @@ export interface Database {
           requires_stripe: boolean;
           allows_cash: boolean;
           is_active: boolean;
+          dropoff_display_name: string | null;
+          pickup_display_name: string | null;
           created_at: string;
           updated_at: string;
         };

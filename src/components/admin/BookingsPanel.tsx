@@ -372,7 +372,7 @@ function BookingDetail({
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs mb-4">
         <Row label="Reference" value={bookingRef(b.id)} title={b.id} mono />
         <Row label="Email" value={b.email || '—'} />
-        <Row label="Passport / NIC" value={b.passportNo || '—'} mono />
+        <Row label="Passport Number" value={b.passportNo || '—'} mono />
         <Row label="Flight #" value={b.flightNumber || '—'} />
         <Row label="Duration" value={`${b.durationDays} day(s)`} />
         <Row label="Drop-off" value={`${b.dropoffLocationName} · ${fmt(b.dropoffTime)}`} />

@@ -63,7 +63,23 @@ const TIER_FIELDS: FieldDef<ItemTierRow>[] = [
 
 const LOCATION_FIELDS: FieldDef<LocationRow>[] = [
   { key: 'code', label: 'Code', type: 'text', createOnly: true, placeholder: 'LOC_003', hint: 'Uppercase, permanent.' },
-  { key: 'name', label: 'Display name', type: 'text', placeholder: 'Hotel Thilon Drop Point' },
+  { key: 'name', label: 'Display name', type: 'text', placeholder: 'Hotel Thilon Drop Point', hint: 'Shown to staff/admin and used as the fallback everywhere below.' },
+  {
+    key: 'dropoff_display_name',
+    label: 'Drop-off picker label',
+    type: 'text',
+    wide: true,
+    placeholder: 'Hotel Thilon Drop Off Location',
+    hint: 'Shown for this location in the booking flow’s drop-off picker. Leave blank to use the display name above.',
+  },
+  {
+    key: 'pickup_display_name',
+    label: 'Pick-up picker label',
+    type: 'text',
+    wide: true,
+    placeholder: 'Hotel Thilon Pickup Location',
+    hint: 'Shown for this location in the booking flow’s pick-up picker. Leave blank to use the display name above.',
+  },
   { key: 'dropoff_surcharge_usd', label: 'Drop-off surcharge', type: 'money', min: 0 },
   { key: 'pickup_surcharge_usd', label: 'Pick-up surcharge', type: 'money', min: 0 },
   {
@@ -288,6 +304,8 @@ const BLANK_LOCATION: Omit<LocationRow, 'id'> = {
   requires_stripe: false,
   allows_cash: true,
   is_active: true,
+  dropoff_display_name: null,
+  pickup_display_name: null,
   created_at: '',
   updated_at: '',
 };

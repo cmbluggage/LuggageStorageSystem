@@ -26,9 +26,9 @@ export const phoneSchema = z
 export const passportSchema = z
   .string()
   .trim()
-  .min(3, 'Passport / NIC number must be at least 3 characters.')
-  .max(32, 'Passport / NIC number is too long.')
-  .regex(/^[A-Za-z0-9\-/ ]+$/, 'Passport / NIC may only contain letters, numbers, hyphens and slashes.');
+  .min(3, 'Passport number must be at least 3 characters.')
+  .max(32, 'Passport number is too long.')
+  .regex(/^[A-Za-z0-9\-/ ]+$/, 'Passport number may only contain letters, numbers, hyphens and slashes.');
 
 export const emailSchema = z
   .string()
@@ -187,6 +187,8 @@ export const locationSchema = z.object({
   requires_stripe: z.boolean().default(false),
   allows_cash: z.boolean().default(true),
   is_active: z.boolean().default(true),
+  dropoff_display_name: safeText(120).nullable().optional(),
+  pickup_display_name: safeText(120).nullable().optional(),
 });
 
 export const locationUpdateSchema = locationSchema.partial().extend({ id: idSchema });

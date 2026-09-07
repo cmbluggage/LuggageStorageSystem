@@ -14,6 +14,10 @@ export interface Location {
   pickup_surcharge_usd: number;
   requires_stripe: boolean;
   allows_cash: boolean;
+  /** Admin-editable label shown for this location in the drop-off picker only. Falls back to `name`. */
+  dropoff_display_name?: string | null;
+  /** Admin-editable label shown for this location in the pick-up picker only. Falls back to `name`. */
+  pickup_display_name?: string | null;
 }
 
 interface LocationSelectorProps {
@@ -45,6 +49,7 @@ export function LocationSelector({
         selectedId={dropoffId}
         onSelect={onDropoffChange}
         surchargeOf={(l) => l.dropoff_surcharge_usd}
+        nameOf={(l) => l.dropoff_display_name || l.name}
         namePrefix="dropoff"
       />
 
@@ -56,6 +61,7 @@ export function LocationSelector({
         selectedId={pickupId}
         onSelect={onPickupChange}
         surchargeOf={(l) => l.pickup_surcharge_usd}
+        nameOf={(l) => l.pickup_display_name || l.name}
         namePrefix="pickup"
       />
 
@@ -82,6 +88,7 @@ interface LegPickerProps {
   selectedId: string | null;
   onSelect: (id: string) => void;
   surchargeOf: (l: Location) => number;
+  nameOf: (l: Location) => string;
   namePrefix: string;
 }
 
@@ -92,6 +99,7 @@ function LegPicker({
   selectedId,
   onSelect,
   surchargeOf,
+  nameOf,
   namePrefix,
 }: LegPickerProps) {
   return (
@@ -155,7 +163,7 @@ function LegPicker({
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-extrabold text-[#1C130E] leading-snug">
-                    {loc.name}
+                    {nameOf(loc)}
                   </span>
                   {airport && (
                     <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800 border border-orange-200/60">
@@ -166,7 +174,7 @@ function LegPicker({
 
                 {surcharge > 0 ? (
                   <span className="block mt-1 text-xs font-bold text-orange-700">
-                    +{formatUSD(surcharge)} location fee
+                    +{formatUSD(surcharge)} service fee
                   </span>
                 ) : (
                   <span className="block mt-0.5 text-xs font-medium text-slate-400">

@@ -293,7 +293,7 @@ export function LandingPage() {
               { title: 'Secure Storage Facility', body: 'Daily storage for layovers, late checkouts and early arrivals. Any size, from a daypack to a surfboard.', Icon: Lock },
               { title: 'Long-Term Storage', body: 'Weekly rates for expats, digital nomads and anyone island-hopping light for a while. Store your luggage for as long as you need.', Icon: CalendarClock },
               { title: 'Secure 24/7 Access', body: 'Our facility is directly managed by us, with no third-party involvement. Drop off and collect your luggage anytime to fit your travel plans.', Icon: Clock },
-              { title: 'Convenient Airport Location', body: "Just 2 km from the airport, making it a quick 5–10 minute trip. A convenient stop whether you're arriving, departing or between transiting.", Icon: MapPinned },
+              { title: 'Convenient Airport Location', body: "Just 2 km from the airport, making it a quick 5–10 minute trip. A convenient stop whether you're arriving, departing or between flights.", Icon: MapPinned },
               { title: 'Airport Pickup & Delivery', body: 'We can meet you at Arrivals or bring your bags back to Departures in time for your flight. Pickup and delivery are available for a small fee.', Icon: PlaneTakeoff },
               { title: 'Flexible Payment Options', body: 'Pay conveniently using foreign, local currencies or secure card payments.', Icon: CreditCard },
             ].map(({ title, body, Icon }) => (
@@ -395,7 +395,7 @@ export function LandingPage() {
               <div className="flex flex-col gap-2 px-6 md:px-[30px] py-7">
                 <h3 className="font-bold text-[#0a0a0a] text-[22px] tracking-[-0.44px]">{hotelLabel}</h3>
                 <p className="text-[#5f5f5f] text-[16px] leading-[25.6px]">
-                  Our partner desk in the hotel lobby, a 5-minute drive from the airport. Best if you&rsquo;re on a long layover. Store the bags, take a shower and a meal, then head back.
+                  Our partner desk in the hotel lobby, a 5-minute drive from the airport. Best if you&rsquo;re on a long layover. Store the bags, take a shower and enjoy a meal, then head back.
                 </p>
                 <div className="flex flex-wrap gap-2.5 pt-2.5">
                   <span className="bg-[#faf8f6] border border-[#ede8e3] px-[14px] py-2 rounded-full font-semibold text-[#5f5f5f] text-[13px]">5 min from CMB Airport</span>

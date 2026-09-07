@@ -656,7 +656,7 @@ export default function CheckoutPage() {
                 <div className="flex items-center gap-3">
                   <Phone className="w-4 h-4 text-orange-600 flex-shrink-0" />
                   <div className="min-w-0">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">WhatsApp Number</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Telephone Number (WhatsApp preferred)</p>
                     <p className="text-xs font-bold text-slate-900 truncate">{customerPhone}</p>
                   </div>
                 </div>
@@ -673,7 +673,7 @@ export default function CheckoutPage() {
                   <div className="flex items-center gap-3">
                     <FileText className="w-4 h-4 text-orange-600 flex-shrink-0" />
                     <div className="min-w-0">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Passport / NIC</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Passport Number</p>
                       <p className="text-xs font-bold text-slate-900 truncate">{customerPassport}</p>
                     </div>
                   </div>

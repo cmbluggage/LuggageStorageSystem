@@ -13,17 +13,23 @@
 -- ================================================================
 
 -- ── Locations ─────────────────────────────────────────────────
+-- dropoff_display_name / pickup_display_name are what the booking flow's
+-- location picker shows for each direction (falls back to `name` when
+-- null) — the same physical site can read differently depending on
+-- whether the customer is choosing where to drop off or pick up.
 insert into public.locations
-  (name, code, is_airport, dropoff_surcharge_usd, pickup_surcharge_usd, requires_stripe, allows_cash)
+  (name, code, is_airport, dropoff_surcharge_usd, pickup_surcharge_usd, requires_stripe, allows_cash, dropoff_display_name, pickup_display_name)
 values
-  ('CMB Airport Storage Hub',      'LOC_001', true,  10.00, 10.00, true,  false),
-  ('Hotel Thilon Drop Point',       'LOC_002', false,  0.00,  0.00, false, true)
+  ('CMB Airport Storage Hub',      'LOC_001', true,  10.00, 10.00, true,  false, 'CMB Airport Drop Off Location',   'CMB Airport Pickup Location'),
+  ('Hotel Thilon Drop Point',       'LOC_002', false,  0.00,  0.00, false, true,  'Hotel Thilon Drop Off Location',  'Hotel Thilon Pickup Location')
 on conflict (code) do update set
   is_airport            = excluded.is_airport,
   dropoff_surcharge_usd = excluded.dropoff_surcharge_usd,
   pickup_surcharge_usd  = excluded.pickup_surcharge_usd,
   requires_stripe       = excluded.requires_stripe,
-  allows_cash           = excluded.allows_cash;
+  allows_cash           = excluded.allows_cash,
+  dropoff_display_name  = excluded.dropoff_display_name,
+  pickup_display_name   = excluded.pickup_display_name;
 
 -- ── Time Slots (window = 2h operational block) ─────────────────
 do $$

@@ -103,15 +103,22 @@ function BookingWizard() {
   const [insuranceEnabled, setInsuranceEnabled] = useState(false);
 
   // ── Personal details ─────────────────────────────────────────
-  const [fullName,      setFullName]      = useState('');
+  const [firstName,     setFirstName]     = useState('');
+  const [lastName,      setLastName]      = useState('');
   const [email,         setEmail]         = useState('');
   const [passportNo,    setPassportNo]    = useState('');
   const [flightNumber,  setFlightNumber]  = useState('');
   const [countryCode,   setCountryCode]   = useState('+94');
   const [whatsappNo,    setWhatsappNo]    = useState('');
 
+  // Composed once, used everywhere downstream (API payload, sessionStorage,
+  // display) — the booking record and every surface that reads it back
+  // (staff/admin, emails, QR pass) still store/show a single full name.
+  const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+
   // ── Validation ───────────────────────────────────────────────
-  const [fullNameError, setFullNameError] = useState('');
+  const [firstNameError, setFirstNameError] = useState('');
+  const [lastNameError, setLastNameError] = useState('');
   const [emailError,    setEmailError]    = useState('');
   const [passportError, setPassportError] = useState('');
   const [whatsappError, setWhatsappError] = useState('');
@@ -188,7 +195,8 @@ function BookingWizard() {
           if (state.dropoffTime) setDropoffTime(state.dropoffTime);
           if (state.pickupTime) setPickupTime(state.pickupTime);
           if (state.insuranceEnabled !== undefined) setInsuranceEnabled(state.insuranceEnabled);
-          if (state.fullName) setFullName(state.fullName);
+          if (state.firstName) setFirstName(state.firstName);
+          if (state.lastName) setLastName(state.lastName);
           if (state.email) setEmail(state.email);
           if (state.passportNo) setPassportNo(state.passportNo);
           if (state.flightNumber) setFlightNumber(state.flightNumber);
@@ -225,10 +233,10 @@ function BookingWizard() {
     if (!hasLoaded) return;
     sessionStorage.setItem('stowaway_booking_state', JSON.stringify({
       quantities, dropoffId, pickupId, dropoffTime, pickupTime,
-      insuranceEnabled, fullName, email, passportNo, flightNumber,
+      insuranceEnabled, firstName, lastName, email, passportNo, flightNumber,
       countryCode, whatsappNo, bookingStep
     }));
-  }, [quantities, dropoffId, pickupId, dropoffTime, pickupTime, insuranceEnabled, fullName, email, passportNo, flightNumber, countryCode, whatsappNo, bookingStep, hasLoaded]);
+  }, [quantities, dropoffId, pickupId, dropoffTime, pickupTime, insuranceEnabled, firstName, lastName, email, passportNo, flightNumber, countryCode, whatsappNo, bookingStep, hasLoaded]);
 
   // ── Derived values ───────────────────────────────────────────
   const dropoffLocation = locations.find((l) => l.id === dropoffId) ?? null;
@@ -366,13 +374,18 @@ function BookingWizard() {
   // ── Validation ───────────────────────────────────────────────
   const validatePersonalDetails = (): boolean => {
     let valid = true;
-    setFullNameError('');
+    setFirstNameError('');
+    setLastNameError('');
     setEmailError('');
     setPassportError('');
     setWhatsappError('');
 
-    if (!fullName.trim() || fullName.trim().length < 2) {
-      setFullNameError('Please enter your full name (at least 2 characters).');
+    if (!firstName.trim() || firstName.trim().length < 2) {
+      setFirstNameError('Please enter your first name (at least 2 characters).');
+      valid = false;
+    }
+    if (!lastName.trim() || lastName.trim().length < 2) {
+      setLastNameError('Please enter your last name (at least 2 characters).');
       valid = false;
     }
     if (!email.trim() || !emailRx.test(email.trim())) {
@@ -380,7 +393,7 @@ function BookingWizard() {
       valid = false;
     }
     if (!passportNo.trim() || passportNo.trim().length < 3) {
-      setPassportError('Please enter your Passport / NIC number (at least 3 characters).');
+      setPassportError('Please enter your passport number (at least 3 characters).');
       valid = false;
     }
     const fullPhone = `${countryCode}${whatsappNo.replace(/\D/g, '')}`;
@@ -712,27 +725,50 @@ function BookingWizard() {
                   </p>
 
                     <div className="flex flex-col gap-5">
-                      {/* Full Name */}
-                      <div>
-                        <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5 text-orange-600" /> Full Name *
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="John Doe"
-                          value={fullName}
-                          onChange={(e) => { setFullName(e.target.value); setFullNameError(''); }}
-                          className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none transition-all ${
-                            fullNameError
-                              ? 'border-red-500 ring-2 ring-red-500/20'
-                              : 'border-slate-300 focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20'
-                          }`}
-                        />
-                        {fullNameError && (
-                          <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
-                            <AlertCircle className="w-3 h-3" /> {fullNameError}
-                          </p>
-                        )}
+                      {/* Name */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5 text-orange-600" /> First Name *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="John"
+                            value={firstName}
+                            onChange={(e) => { setFirstName(e.target.value); setFirstNameError(''); }}
+                            className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none transition-all ${
+                              firstNameError
+                                ? 'border-red-500 ring-2 ring-red-500/20'
+                                : 'border-slate-300 focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20'
+                            }`}
+                          />
+                          {firstNameError && (
+                            <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" /> {firstNameError}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
+                            <User className="w-3.5 h-3.5 text-orange-600" /> Last Name *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Doe"
+                            value={lastName}
+                            onChange={(e) => { setLastName(e.target.value); setLastNameError(''); }}
+                            className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 text-sm font-semibold text-slate-900 focus:bg-white focus:outline-none transition-all ${
+                              lastNameError
+                                ? 'border-red-500 ring-2 ring-red-500/20'
+                                : 'border-slate-300 focus:border-orange-600 focus:ring-2 focus:ring-orange-600/20'
+                            }`}
+                          />
+                          {lastNameError && (
+                            <p className="text-xs font-semibold text-red-600 mt-1 flex items-center gap-1">
+                              <AlertCircle className="w-3 h-3" /> {lastNameError}
+                            </p>
+                          )}
+                        </div>
                       </div>
 
                       {/* Email */}
@@ -771,7 +807,7 @@ function BookingWizard() {
                       {/* WhatsApp */}
                       <div>
                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
-                          <Phone className="w-3.5 h-3.5 text-orange-600" /> WhatsApp Number *
+                          <Phone className="w-3.5 h-3.5 text-orange-600" /> Telephone Number (WhatsApp preferred) *
                         </label>
                         <div className="flex gap-3">
                           <div className="w-[140px] flex-shrink-0">
@@ -806,7 +842,7 @@ function BookingWizard() {
                       {/* Passport */}
                       <div>
                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
-                          <FileText className="w-3.5 h-3.5 text-orange-600" /> Passport / NIC Number *
+                          <FileText className="w-3.5 h-3.5 text-orange-600" /> Passport Number *
                         </label>
                         <input
                           type="text"
@@ -828,7 +864,7 @@ function BookingWizard() {
                       {/* Arrival Flight Number */}
                       <div>
                         <label className="block text-xs font-bold uppercase tracking-wider text-slate-700 mb-1.5 flex items-center gap-1.5">
-                          <Plane className="w-3.5 h-3.5 text-slate-400" /> Arrival Flight Number (Optional)
+                          <Plane className="w-3.5 h-3.5 text-slate-400" /> Arrival Flight Number (Preferred)
                         </label>
                         <input
                           type="text"
