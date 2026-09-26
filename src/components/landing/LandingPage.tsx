@@ -262,7 +262,7 @@ export function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-5">
             {[
               { n: '01', border: 'border-[#0a0a0a]', num: 'text-[#9a9a9a]', title: 'Book online', body: 'Pick a date, number of bags and duration. You get a confirmation by email instantly' },
-              { n: '02', border: 'border-[#0a0a0a]', num: 'text-[#9a9a9a]', title: 'Drop at the designated drop-off location', body: 'Drop off your luggage at Hotel Thilon for free, or at Colombo Airport for a nominal additional fee.' },
+              { n: '02', border: 'border-[#0a0a0a]', num: 'text-[#9a9a9a]', title: 'Drop at the two designated drop-off location', body: 'Drop off your luggage at Hotel Thilon (5mins away from CMB Airport) for free, or at Colombo Airport for a nominal additional fee.' },
               { n: '03', border: 'border-[#e8620a]', num: 'text-[#e8620a]', title: 'Collect when you fly', body: "Let us know your departure flight in advance, and we’ll meet you at the airport with your luggage - or you can collect it directly from Hotel Thilon." },
             ].map((step) => (
               <div key={step.n} className={`border-t-[3px] ${step.border} flex flex-col gap-[10px] pt-[27px]`}>
@@ -510,11 +510,12 @@ export function LandingPage() {
             <span className="font-extrabold text-[#0a0a0a] text-[16px] tracking-[-0.32px]">Luggage Storage Colombo</span>
           </Link>
 
-          <div className="flex gap-7 items-center">
+          <div className="flex flex-wrap justify-center gap-x-7 gap-y-2 items-center">
             <a href="#services" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">Services</a>
             <a href="#pricing" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">Pricing</a>
             <a href="#faq" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">FAQ</a>
             <Link href="/my-bookings" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">Contact</Link>
+            <Link href="/terms" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">Terms</Link>
           </div>
 
           <p className="text-[#9a9a9a] text-[14px] whitespace-nowrap">© {new Date().getFullYear()} · Katunayake, Sri Lanka</p>

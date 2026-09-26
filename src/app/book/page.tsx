@@ -908,7 +908,14 @@ function BookingWizard() {
                     </div>
                   )}
 
-                  <div className="mt-8 flex items-center justify-between gap-3">
+                  <p className="mt-6 text-xs text-gray-500">
+                    By confirming this booking you agree to our{' '}
+                    <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-orange-600 underline">
+                      Terms &amp; Conditions
+                    </a>.
+                  </p>
+
+                  <div className="mt-4 flex items-center justify-between gap-3">
                     <Button variant="secondary" size="md" onClick={() => prevStep(3)}>Back</Button>
                     <Button
                       variant="primary"
