@@ -516,6 +516,7 @@ export function LandingPage() {
             <a href="#faq" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">FAQ</a>
             <Link href="/my-bookings" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">Contact</Link>
             <Link href="/terms" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">Terms</Link>
+            <Link href="/privacy" className="text-[#5f5f5f] text-[15px] hover:text-[#0a0a0a] transition-colors">Privacy</Link>
           </div>
 
           <p className="text-[#9a9a9a] text-[14px] whitespace-nowrap">© {new Date().getFullYear()} · Katunayake, Sri Lanka</p>

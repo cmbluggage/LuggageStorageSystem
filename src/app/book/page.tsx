@@ -912,6 +912,9 @@ function BookingWizard() {
                     By confirming this booking you agree to our{' '}
                     <a href="/terms" target="_blank" rel="noopener noreferrer" className="font-bold text-orange-600 underline">
                       Terms &amp; Conditions
+                    </a>{' '}and{' '}
+                    <a href="/privacy" target="_blank" rel="noopener noreferrer" className="font-bold text-orange-600 underline">
+                      Privacy Policy
                     </a>.
                   </p>
 

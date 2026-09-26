@@ -113,7 +113,7 @@ const SECTIONS: Section[] = [
   },
   {
     title: 'Personal Information',
-    paras: ['Customer information collected for booking, identification, payment and luggage management purposes will be handled in accordance with applicable privacy laws.'],
+    paras: ['Customer information collected for booking, identification, payment and luggage management purposes will be handled in accordance with applicable privacy laws, as described in our Privacy Policy.'],
   },
   {
     title: 'Limitation of Liability',
@@ -154,7 +154,7 @@ export default function TermsPage() {
       <main className="max-w-[800px] mx-auto px-6 py-12 md:py-16">
         <h1 className="text-3xl md:text-4xl font-extrabold text-[#1C130E] tracking-tight">Terms &amp; Conditions</h1>
         <p className="mt-3 text-[15px] text-[#5f5f5f]">
-          Please read these terms before booking. Questions? <Link href="/my-bookings" className="text-orange-600 font-bold underline">Contact us</Link>.
+          Please read these terms before booking. See also our <Link href="/privacy" className="text-orange-600 font-bold underline">Privacy Policy</Link>. Questions? <Link href="/my-bookings" className="text-orange-600 font-bold underline">Contact us</Link>.
         </p>
 
         <ol className="mt-10 space-y-8">
