@@ -1,5 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin';
-import { badRequest, conflict, notFound, serverError } from '@/lib/api/http';
+import { ApiError, badRequest, conflict, notFound, serverError } from '@/lib/api/http';
 import { bookingTouchesAirport, isAirportLocation, resolvePayment, toApiMethod } from '@/lib/locations';
 import type { PaymentMethodApi, PaymentStatus } from '@/lib/locations';
 import { calculateGrandTotal, round2, type LineItem, type TierPricing } from '@/lib/pricing';
@@ -641,6 +641,12 @@ export async function updateBookingPayment(
   if (payment.method === 'stripe_simulated') {
     if (isStripeConfigured()) {
       throw badRequest('Card payments are handled by the secure checkout flow. Use /api/bookings/[id]/checkout.');
+    }
+    // Dev-only instant settle. In production this would mark a booking paid
+    // with no money taken — callable by anyone with the booking id — so it's
+    // refused outright unless explicitly opted in (e.g. a staging demo).
+    if (process.env.NODE_ENV === 'production' && process.env.ALLOW_SIMULATED_CARD_PAYMENTS !== 'true') {
+      throw new ApiError(503, 'Online card payment is not available right now. Please contact us to complete your booking.', 'service_unavailable');
     }
     const hadPriorPayment = await hasSucceededPayment(supabase, id);
     const booking = await recordPayment({ bookingId: id, amountUsd: Number(row.grand_total_usd ?? 0), method: 'stripe' });

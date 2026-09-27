@@ -37,6 +37,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
     const booking = await getBookingById(id);
     if (!booking) throw notFound('We could not find that booking.');
+    if (booking.status === 'cancelled') throw conflict('This booking has been cancelled.');
     if (booking.balanceDueUsd <= 0) throw conflict('This booking is already fully paid.');
 
     const origin = new URL(req.url).origin;
