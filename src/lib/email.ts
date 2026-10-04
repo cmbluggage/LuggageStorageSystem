@@ -7,6 +7,7 @@ import {
   balanceDueTemplate,
   statusUpdateTemplate,
   bookingCancelledTemplate,
+  newBookingStaffTemplate,
 } from '@/lib/emailTemplates';
 import type { BookingRecord } from '@/lib/db';
 
@@ -167,7 +168,26 @@ export async function sendEmail(input: SendEmailInput): Promise<SendEmailResult>
 export async function sendBookingConfirmedEmail(booking: BookingRecord): Promise<SendEmailResult> {
   if (!booking.email) return { sent: false, provider: 'none' };
   const { subject, html } = bookingConfirmedTemplate(booking);
+  // Every confirmed booking also notifies the business inbox — fired from
+  // here so it follows the same rule as the customer email (cash: at
+  // creation; card: only once payment actually succeeds).
+  sendNewBookingStaffEmail(booking).catch((e) => console.error('[email] staff notification failed:', e));
   return sendEmail({ to: booking.email, subject, html, bookingId: booking.id, template: 'booking_confirmed' });
+}
+
+/** BOOKING_NOTIFY_EMAIL (comma-separated), else the address in EMAIL_FROM. */
+function staffNotifyRecipients(): string[] {
+  const raw = process.env.BOOKING_NOTIFY_EMAIL || FROM_ADDRESS.match(/[^\s<>]+@[^\s<>]+/)?.[0] || '';
+  return raw.split(',').map((s) => s.trim()).filter((s) => s && !s.endsWith('@resend.dev'));
+}
+
+export async function sendNewBookingStaffEmail(booking: BookingRecord): Promise<void> {
+  const { subject, html } = newBookingStaffTemplate(booking);
+  await Promise.all(
+    staffNotifyRecipients().map((to) =>
+      sendEmail({ to, subject, html, bookingId: booking.id, template: 'staff_new_booking' }),
+    ),
+  );
 }
 
 export async function sendPaymentReceivedEmail(booking: BookingRecord): Promise<SendEmailResult> {

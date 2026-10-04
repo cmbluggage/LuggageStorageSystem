@@ -128,3 +128,39 @@ export function bookingCancelledTemplate(b: BookingRecord, reason?: string) {
     `),
   };
 }
+
+function esc(v: unknown): string {
+  return String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+}
+
+function when(iso: string): string {
+  return new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Colombo', dateStyle: 'medium', timeStyle: 'short' });
+}
+
+/** Internal notification to the business inbox — every customer field is escaped, it's untrusted input. */
+export function newBookingStaffTemplate(b: BookingRecord) {
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:6px 12px 6px 0; color:#8a8a8a; white-space:nowrap; vertical-align:top;">${label}</td><td style="padding:6px 0; font-weight:600;">${value}</td></tr>`;
+  const items = b.items.map((i) => `${i.qty} × ${esc(i.tierName || i.tierCode)}`).join('<br>');
+  return {
+    subject: `New booking ${bookingRef(b.id)} — ${b.fullName.replace(/\s+/g, ' ')}`,
+    html: `
+      <div style="font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px 20px; color: #1C130E;">
+        <h1 style="font-size:20px; margin:0 0 16px;">New booking ${bookingRef(b.id)}</h1>
+        <table style="font-size:14px; border-collapse:collapse;">
+          ${row('Customer', esc(b.fullName))}
+          ${row('Phone', esc(b.phone))}
+          ${row('Email', esc(b.email))}
+          ${row('Flight', esc(b.flightNumber || '—'))}
+          ${row('Drop-off', `${esc(b.dropoffLocationName)}<br>${when(b.dropoffTime)}`)}
+          ${row('Pick-up', `${esc(b.pickupLocationName)}<br>${when(b.pickupTime)}`)}
+          ${row('Bags', items || '—')}
+          ${row('Insurance', b.insuranceEnabled ? 'Yes' : 'No')}
+          ${row('Total', `${formatUSD(b.grandTotalUsd)} (${b.paymentMethod === 'cash' ? 'cash' : 'card'}, ${b.balanceDueUsd > 0 ? `${formatUSD(b.balanceDueUsd)} due` : 'paid'})`)}
+          ${b.notes ? row('Notes', esc(b.notes)) : ''}
+        </table>
+        <div>${button('Open in staff dashboard', `${SITE_URL}/staff`)}</div>
+      </div>
+    `.trim(),
+  };
+}

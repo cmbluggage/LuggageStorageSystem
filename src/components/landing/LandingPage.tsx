@@ -4,7 +4,10 @@ import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Plane, ShieldCheck, Wallet, Lock, CalendarClock, Clock, MapPinned, PlaneTakeoff, CreditCard, Play, MapPin } from 'lucide-react';
+import { Plane, ShieldCheck, Wallet, Lock, CalendarClock, Clock, MapPinned, PlaneTakeoff, CreditCard, Play, MapPin, PlaneLanding } from 'lucide-react';
+
+/** Photo for the airport pickup card — null shows a placeholder until the client supplies one. */
+const AIRPORT_PICKUP_IMAGE: string | null = null;
 import type { ItemTier } from '@/components/booking/ItemSelector';
 import { DEFAULT_SETTINGS, type PublicSettings } from '@/lib/settings';
 import { SiteHeader } from '@/components/ui/SiteHeader';
@@ -326,9 +329,9 @@ export function LandingPage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white border border-[#ede8e3] rounded-[22px] overflow-hidden">
-              <div className="relative h-[220px] md:h-[300px] bg-[#0a0a0a] flex items-center justify-center overflow-hidden">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="bg-white border border-[#ede8e3] rounded-[22px] overflow-hidden flex flex-col">
+              <div className="relative h-[220px] md:h-[240px] bg-[#0a0a0a] flex items-center justify-center overflow-hidden">
                 {videoPlaying && videoId ? (
                   <iframe
                     className="absolute inset-0 size-full"
@@ -344,7 +347,7 @@ export function LandingPage() {
                         src={`https://img.youtube.com/vi/${encodeURIComponent(videoId)}/hqdefault.jpg`}
                         alt=""
                         fill
-                        sizes="(min-width: 1024px) 50vw, 100vw"
+                        sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
                         className="object-cover opacity-70"
                       />
                     )}
@@ -366,20 +369,47 @@ export function LandingPage() {
                   </>
                 )}
               </div>
-              <div className="flex flex-col gap-2 px-6 md:px-[30px] py-7">
-                <h3 className="font-bold text-[#0a0a0a] text-[22px] tracking-[-0.44px]">Colombo Airport Drop-Off &amp; Pickup</h3>
-                <p className="text-[#5f5f5f] text-[16px] leading-[25.6px]">
+              <div className="flex flex-col gap-2 px-6 py-6 flex-1">
+                <h3 className="font-bold text-[#0a0a0a] text-[20px] tracking-[-0.4px]">Colombo Airport Drop-Off</h3>
+                <p className="text-[#5f5f5f] text-[15px] leading-[24px]">
                   Bandaranaike International Airport — just outside the terminal, around a 1-minute walk. We&rsquo;ll coordinate with you in advance and be ready to receive your luggage when your flight arrives.
                 </p>
-                <div className="flex flex-wrap gap-2.5 pt-2.5">
-                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-[14px] py-2 rounded-full font-semibold text-[#5f5f5f] text-[13px]">Just outside the terminal</span>
-                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-[14px] py-2 rounded-full font-semibold text-[#5f5f5f] text-[13px]">Advance Booking Required</span>
+                <div className="flex flex-wrap gap-2 pt-2 mt-auto">
+                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-3 py-1.5 rounded-full font-semibold text-[#5f5f5f] text-[12px]">Just outside the terminal</span>
+                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-3 py-1.5 rounded-full font-semibold text-[#5f5f5f] text-[12px]">Advance Booking Required</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white border border-[#ede8e3] rounded-[22px] overflow-hidden">
-              <div className="relative h-[220px] md:h-[300px] bg-[#f7f5f3]">
+            <div className="bg-white border border-[#ede8e3] rounded-[22px] overflow-hidden flex flex-col">
+              <div className="relative h-[220px] md:h-[240px] bg-[#0a0a0a] flex items-center justify-center overflow-hidden">
+                {/* Client photo goes here: drop it in public/landing/ and set AIRPORT_PICKUP_IMAGE. */}
+                {AIRPORT_PICKUP_IMAGE ? (
+                  <Image
+                    src={AIRPORT_PICKUP_IMAGE}
+                    alt="Colombo Airport luggage pickup point"
+                    fill
+                    sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
+                    className="object-cover"
+                  />
+                ) : (
+                  <PlaneLanding className="w-12 h-12 text-white/30" aria-hidden />
+                )}
+              </div>
+              <div className="flex flex-col gap-2 px-6 py-6 flex-1">
+                <h3 className="font-bold text-[#0a0a0a] text-[20px] tracking-[-0.4px]">Colombo Airport Pickup</h3>
+                <p className="text-[#5f5f5f] text-[15px] leading-[24px]">
+                  Bandaranaike International Airport — just outside the terminal, around a 1-minute walk. We&rsquo;ll coordinate with you in advance and have your luggage ready to hand back before your flight departs.
+                </p>
+                <div className="flex flex-wrap gap-2 pt-2 mt-auto">
+                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-3 py-1.5 rounded-full font-semibold text-[#5f5f5f] text-[12px]">Just outside the terminal</span>
+                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-3 py-1.5 rounded-full font-semibold text-[#5f5f5f] text-[12px]">Advance Booking Required</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border border-[#ede8e3] rounded-[22px] overflow-hidden flex flex-col">
+              <div className="relative h-[220px] md:h-[240px] bg-[#f7f5f3]">
                 <iframe
                   className="absolute inset-0 size-full border-0"
                   loading="lazy"
@@ -392,15 +422,15 @@ export function LandingPage() {
                   <span className="font-bold text-[12px] text-white">{hotelLabel}</span>
                 </span>
               </div>
-              <div className="flex flex-col gap-2 px-6 md:px-[30px] py-7">
-                <h3 className="font-bold text-[#0a0a0a] text-[22px] tracking-[-0.44px]">{hotelLabel}</h3>
-                <p className="text-[#5f5f5f] text-[16px] leading-[25.6px]">
+              <div className="flex flex-col gap-2 px-6 py-6 flex-1">
+                <h3 className="font-bold text-[#0a0a0a] text-[20px] tracking-[-0.4px]">{hotelLabel}</h3>
+                <p className="text-[#5f5f5f] text-[15px] leading-[24px]">
                   Our partner desk in the hotel lobby, a 5-minute drive from the airport. Best if you&rsquo;re on a long layover. Store the bags, take a shower and enjoy a meal, then head back.
                 </p>
-                <div className="flex flex-wrap gap-2.5 pt-2.5">
-                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-[14px] py-2 rounded-full font-semibold text-[#5f5f5f] text-[13px]">5 min from CMB Airport</span>
-                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-[14px] py-2 rounded-full font-semibold text-[#5f5f5f] text-[13px]">Walk-Ins Welcome</span>
-                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-[14px] py-2 rounded-full font-semibold text-[#5f5f5f] text-[13px]">Open 24/7</span>
+                <div className="flex flex-wrap gap-2 pt-2 mt-auto">
+                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-3 py-1.5 rounded-full font-semibold text-[#5f5f5f] text-[12px]">5 min from CMB Airport</span>
+                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-3 py-1.5 rounded-full font-semibold text-[#5f5f5f] text-[12px]">Walk-Ins Welcome</span>
+                  <span className="bg-[#faf8f6] border border-[#ede8e3] px-3 py-1.5 rounded-full font-semibold text-[#5f5f5f] text-[12px]">Open 24/7</span>
                 </div>
               </div>
             </div>
