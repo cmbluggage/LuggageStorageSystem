@@ -54,7 +54,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   turnstile_enabled: false,
   booking_rate_limit: 10,
   ops_window_hours: 48,
-  walkthrough_video_id: '',
+  walkthrough_video_id: 'xVaG8bPF06c',
   hotel_location_label: 'Hotel Thilon',
   hotel_location_address: 'Hotel Thilon, Katunayake, Sri Lanka',
 };

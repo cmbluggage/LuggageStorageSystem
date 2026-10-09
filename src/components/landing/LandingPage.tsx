@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plane, ShieldCheck, Wallet, Lock, CalendarClock, Clock, MapPinned, PlaneTakeoff, CreditCard, Play, MapPin, PlaneLanding } from 'lucide-react';
 
-/** Photo for the airport pickup card — null shows a placeholder until the client supplies one. */
-const AIRPORT_PICKUP_IMAGE: string | null = null;
+/** Photo for the airport pickup card — null shows a placeholder icon instead. */
+const AIRPORT_PICKUP_IMAGE: string | null = '/landing/airport-pickup.webp';
 import type { ItemTier } from '@/components/booking/ItemSelector';
 import { DEFAULT_SETTINGS, type PublicSettings } from '@/lib/settings';
 import { SiteHeader } from '@/components/ui/SiteHeader';
@@ -64,7 +64,8 @@ export function LandingPage() {
         const settings = data?.settings;
         if (!settings) return;
         if (settings.support_whatsapp) setWhatsapp(settings.support_whatsapp);
-        if (typeof settings.walkthrough_video_id === 'string') setVideoId(settings.walkthrough_video_id);
+        // Blank in the DB means "not set by admin" — keep the built-in default clip rather than hiding it.
+        if (settings.walkthrough_video_id) setVideoId(settings.walkthrough_video_id);
         if (settings.hotel_location_label) setHotelLabel(settings.hotel_location_label);
         if (settings.hotel_location_address) setHotelAddress(settings.hotel_location_address);
       })
@@ -336,7 +337,7 @@ export function LandingPage() {
                   <iframe
                     className="absolute inset-0 size-full"
                     src={`https://www.youtube-nocookie.com/embed/${encodeURIComponent(videoId)}?autoplay=1&rel=0`}
-                    title="Colombo Airport Drop-Off & Pickup walkthrough"
+                    title="Colombo Airport Drop-Off walkthrough"
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                     allowFullScreen
                   />
@@ -372,7 +373,7 @@ export function LandingPage() {
               <div className="flex flex-col gap-2 px-6 py-6 flex-1">
                 <h3 className="font-bold text-[#0a0a0a] text-[20px] tracking-[-0.4px]">Colombo Airport Drop-Off</h3>
                 <p className="text-[#5f5f5f] text-[15px] leading-[24px]">
-                  Bandaranaike International Airport — just outside the terminal, around a 1-minute walk. We&rsquo;ll coordinate with you in advance and be ready to receive your luggage when your flight arrives.
+                  Landed at Bandaranaike International Airport? Our drop-off point is just outside the arrivals terminal, about a 1-minute walk. Share your flight details when you book and we&rsquo;ll be waiting to take your bags the moment you walk out.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-2 mt-auto">
                   <span className="bg-[#faf8f6] border border-[#ede8e3] px-3 py-1.5 rounded-full font-semibold text-[#5f5f5f] text-[12px]">Just outside the terminal</span>
@@ -383,8 +384,7 @@ export function LandingPage() {
 
             <div className="bg-white border border-[#ede8e3] rounded-[22px] overflow-hidden flex flex-col">
               <div className="relative h-[220px] md:h-[240px] bg-[#0a0a0a] flex items-center justify-center overflow-hidden">
-                {/* Client photo goes here: drop it in public/landing/ and set AIRPORT_PICKUP_IMAGE. */}
-                {AIRPORT_PICKUP_IMAGE ? (
+                                {AIRPORT_PICKUP_IMAGE ? (
                   <Image
                     src={AIRPORT_PICKUP_IMAGE}
                     alt="Colombo Airport luggage pickup point"
@@ -399,7 +399,7 @@ export function LandingPage() {
               <div className="flex flex-col gap-2 px-6 py-6 flex-1">
                 <h3 className="font-bold text-[#0a0a0a] text-[20px] tracking-[-0.4px]">Colombo Airport Pickup</h3>
                 <p className="text-[#5f5f5f] text-[15px] leading-[24px]">
-                  Bandaranaike International Airport — just outside the terminal, around a 1-minute walk. We&rsquo;ll coordinate with you in advance and have your luggage ready to hand back before your flight departs.
+                  Flying out of Bandaranaike International Airport? Collect your bags at our pickup point just outside the terminal, about a 1-minute walk. Tell us your departure time and your luggage will be ready and waiting, so you can head straight to check-in.
                 </p>
                 <div className="flex flex-wrap gap-2 pt-2 mt-auto">
                   <span className="bg-[#faf8f6] border border-[#ede8e3] px-3 py-1.5 rounded-full font-semibold text-[#5f5f5f] text-[12px]">Just outside the terminal</span>
