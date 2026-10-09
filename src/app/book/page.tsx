@@ -11,6 +11,7 @@ import { PriceSummaryPanel } from '@/components/booking/PriceSummaryPanel';
 import { InsuranceToggle } from '@/components/booking/InsuranceToggle';
 import { SearchableCountrySelect, type CountryOption } from '@/components/booking/SearchableCountrySelect';
 import { calculateGrandTotal } from '@/lib/pricing';
+import { parseBookingTime } from '@/lib/businessTime';
 import { TurnstileWidget } from '@/components/booking/TurnstileWidget';
 import { bookingTouchesAirport } from '@/lib/locations';
 import { DEFAULT_SETTINGS, type PublicSettings } from '@/lib/settings';
@@ -69,8 +70,8 @@ const STEP_TITLES = [
  */
 function computeTimeError(dropoffTime: string, pickupTime: string, leadHours: number, nowMs: number): string {
   if (!dropoffTime || !pickupTime) return '';
-  const dropoffAt = new Date(dropoffTime).getTime();
-  const pickupAt = new Date(pickupTime).getTime();
+  const dropoffAt = parseBookingTime(dropoffTime).getTime();
+  const pickupAt = parseBookingTime(pickupTime).getTime();
 
   if (pickupAt <= dropoffAt) return 'Pick-up time must be after drop-off time.';
   if (dropoffAt < nowMs - 5 * 60_000) return 'Drop-off time cannot be in the past. Please choose a later time.';
@@ -685,6 +686,7 @@ function BookingWizard() {
                     pickupTime={pickupTime}
                     onDropoffChange={(v) => { setDropoffTime(v); setTimeError(''); }}
                     onPickupChange={(v) => { setPickupTime(v); setTimeError(''); }}
+                    leadTimeHours={settings.booking_lead_time_hours}
                   />
                   {timeError && (
                     <div

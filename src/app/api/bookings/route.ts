@@ -3,6 +3,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { calculateGrandTotal, type TierPricing } from '@/lib/pricing';
 import { bookingTouchesAirport } from '@/lib/locations';
 import { getSettings } from '@/lib/settings';
+import { parseBookingTime } from '@/lib/businessTime';
 import { rateLimit } from '@/lib/security/rateLimit';
 import { verifyTurnstile } from '@/lib/security/turnstile';
 import { sendBookingConfirmedEmail } from '@/lib/email';
@@ -68,8 +69,8 @@ export async function POST(req: Request) {
     if (!pickupLocation) throw badRequest('That pick-up location is not available.');
 
     // ── Validate the time range against operator limits ─────────
-    const dropoffAt = new Date(input.dropoffTime);
-    const pickupAt = new Date(input.pickupTime);
+    const dropoffAt = parseBookingTime(input.dropoffTime);
+    const pickupAt = parseBookingTime(input.pickupTime);
 
     if (pickupAt.getTime() <= dropoffAt.getTime()) {
       throw badRequest('Pick-up time must be after drop-off time.');

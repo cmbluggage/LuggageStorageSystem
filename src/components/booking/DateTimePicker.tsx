@@ -4,12 +4,15 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, Check } from 'lucide-react';
 import { getTimeSlots, type TimeSlot } from '@/lib/timeSlots';
 import { CustomDatePicker } from '@/components/ui/CustomDatePicker';
+import { businessToday, parseBookingTime } from '@/lib/businessTime';
 
 interface DateTimePickerProps {
   dropoffTime: string; // ISO string like 2026-07-26T10:00
   pickupTime: string;
   onDropoffChange: (time: string) => void;
   onPickupChange: (time: string) => void;
+  /** Minimum notice before drop-off; slots inside it are greyed out. */
+  leadTimeHours?: number;
 }
 
 function formatSlotDisplay(rawLabel: string): string {
@@ -21,8 +24,15 @@ export function DateTimePicker({
   pickupTime,
   onDropoffChange,
   onPickupChange,
+  leadTimeHours = 0,
 }: DateTimePickerProps) {
   const [slots, setSlots] = useState<TimeSlot[]>([]);
+  // Ticks each minute so slots grey out on their own if the page sits open.
+  const [nowMs, setNowMs] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowMs(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const targetDate = dropoffTime?.split('T')[0];
@@ -81,7 +91,7 @@ export function DateTimePicker({
 
   const handleSlotSelect = (type: 'dropoff' | 'pickup', slot: TimeSlot) => {
     const currentDate = type === 'dropoff' ? dropoff.date : pickup.date;
-    const dateToUse   = currentDate || new Date().toISOString().split('T')[0];
+    const dateToUse   = currentDate || businessToday();
     if (type === 'dropoff') {
       onDropoffChange(`${dateToUse}T${slot.startTime}`);
       if (pickup.date === dateToUse && pickup.time && pickup.time < slot.startTime) {
@@ -92,10 +102,11 @@ export function DateTimePicker({
     }
   };
 
-  const now        = new Date();
-  const minDateStr = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
-    .toISOString()
-    .split('T')[0];
+  // Slots are Colombo opening hours, so "today" and "too soon" are judged
+  // on Colombo's clock, not the visitor's — an overseas customer's phone
+  // can be hours ahead or behind.
+  const minDateStr = businessToday(new Date(nowMs));
+  const earliestDropoffMs = nowMs + leadTimeHours * 3600_000;
 
   const slotGrid = (type: 'dropoff' | 'pickup') => {
     const currentTime = type === 'dropoff' ? dropoff.time : pickup.time;
@@ -114,15 +125,24 @@ export function DateTimePicker({
             Boolean(dropoff.time) &&
             slot.startTime < dropoff.time;
 
+          // Same 5-minute grace as the server's past-time check.
+          const isTooSoon =
+            type === 'dropoff' &&
+            Boolean(dropoff.date) &&
+            parseBookingTime(`${dropoff.date}T${slot.startTime}`).getTime() < earliestDropoffMs - 5 * 60_000;
+
+          const isDisabled = isBeforeDropoff || isTooSoon;
+
           return (
             <button
               key={`${type}-slot-${slot.id}`}
               type="button"
-              disabled={isBeforeDropoff}
+              disabled={isDisabled}
+              title={isTooSoon ? 'Too soon to book this slot. Please choose a later time.' : undefined}
               onClick={() => handleSlotSelect(type, slot)}
               className={[
                 'py-2.5 px-2.5 rounded-xl border text-[11px] sm:text-xs font-bold text-center transition-all flex flex-col items-center justify-center gap-1 leading-tight',
-                isBeforeDropoff
+                isDisabled
                   ? 'opacity-40 cursor-not-allowed bg-slate-100 text-slate-400 border-slate-200 pointer-events-none'
                   : isSelected
                   ? 'bg-orange-600 text-white border-orange-600 shadow-xs ring-1 ring-orange-600 cursor-pointer'
@@ -130,7 +150,7 @@ export function DateTimePicker({
               ].join(' ')}
             >
               <span className="flex items-center gap-1">
-                {isSelected && !isBeforeDropoff && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                {isSelected && !isDisabled && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
                 <span>{formatSlotDisplay(slot.label)}</span>
               </span>
             </button>

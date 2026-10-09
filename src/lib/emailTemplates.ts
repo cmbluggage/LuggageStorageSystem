@@ -2,6 +2,7 @@ import { bookingRef } from '@/lib/format';
 import { formatUSD } from '@/lib/currency';
 import { SITE_URL } from '@/lib/site';
 import type { BookingRecord } from '@/lib/db';
+import { parseBookingTime, BUSINESS_TIME_ZONE } from '@/lib/businessTime';
 
 /**
  * Plain, inline-styled HTML — email clients don't run a CSS engine, so no
@@ -134,7 +135,7 @@ function esc(v: unknown): string {
 }
 
 function when(iso: string): string {
-  return new Date(iso).toLocaleString('en-GB', { timeZone: 'Asia/Colombo', dateStyle: 'medium', timeStyle: 'short' });
+  return parseBookingTime(iso).toLocaleString('en-GB', { timeZone: BUSINESS_TIME_ZONE, dateStyle: 'medium', timeStyle: 'short' });
 }
 
 /** Internal notification to the business inbox — every customer field is escaped, it's untrusted input. */

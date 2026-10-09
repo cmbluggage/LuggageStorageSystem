@@ -2,6 +2,7 @@ import { getOperationalBookings, searchAllBookings } from '@/lib/db';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireStaff } from '@/lib/auth/guard';
 import { getSettings } from '@/lib/settings';
+import { parseBookingTime } from '@/lib/businessTime';
 import { rateLimit } from '@/lib/security/rateLimit';
 import { fail, ok, serverError, tooManyRequests, NO_STORE } from '@/lib/api/http';
 
@@ -86,8 +87,8 @@ export async function GET(req: Request) {
         booking: typeof b;
       }[] = [];
 
-      const dropAt = new Date(b.dropoffTime).getTime();
-      const pickAt = new Date(b.pickupTime).getTime();
+      const dropAt = parseBookingTime(b.dropoffTime).getTime();
+      const pickAt = parseBookingTime(b.pickupTime).getTime();
 
       // Show a drop-off until it has actually been deposited.
       const dropPending = b.status === 'confirmed' || b.status === 'in_transit';
@@ -118,7 +119,7 @@ export async function GET(req: Request) {
       return rows;
     });
 
-    tasks.sort((a, z) => new Date(a.at).getTime() - new Date(z.at).getTime());
+    tasks.sort((a, z) => parseBookingTime(a.at).getTime() - parseBookingTime(z.at).getTime());
 
     // Group by location so each site sees only its own queue.
     const byLocation = new Map<string, typeof tasks>();
@@ -145,7 +146,7 @@ export async function GET(req: Request) {
           total: tasks.length,
           dropoffs: tasks.filter((t) => t.kind === 'dropoff').length,
           pickups: tasks.filter((t) => t.kind === 'pickup').length,
-          overdue: tasks.filter((t) => new Date(t.at).getTime() < now).length,
+          overdue: tasks.filter((t) => parseBookingTime(t.at).getTime() < now).length,
         },
       },
       NO_STORE,

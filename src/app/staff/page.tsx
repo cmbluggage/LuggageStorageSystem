@@ -16,6 +16,7 @@ import {
   ChevronDown, ChevronRight, Shield, X, Pencil, SearchX,
 } from 'lucide-react';
 import type { BookingRecord } from '@/lib/db';
+import { parseBookingTime } from '@/lib/businessTime';
 
 /**
  * Operations Dashboard — redesigned around a single job queue, Uber-driver
@@ -361,7 +362,7 @@ function TaskRow({
 }) {
   const { booking } = task;
   const at = new Date(task.at);
-  const overdue = at.getTime() < nowMs;
+  const overdue = parseBookingTime(task.at).getTime() < nowMs;
   const action = NEXT_ACTION[task.kind][booking.status];
   // Bags don't leave with a balance still owed — collect it (cash or pay
   // link, both already visible above) before this button unlocks.
